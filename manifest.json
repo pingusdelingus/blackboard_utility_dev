@@ -1,0 +1,15 @@
+{
+    "name": "Blackboard Utility",
+    "description": "Friendly extension that gives more utility to the Blackboard website. Utilities range from downloading all course documents, to getting all students from course. (University of Miami)",
+    "version": "1.0",
+    "manifest_version": 3,
+    "action": {
+      "default_popup": "popup.html",
+      "default_icon": "logo.png"
+    },
+    "permissions": ["downloads", "activeTab", "scripting", "cookies", "storage", "webRequest", "declarativeNetRequest"],
+    "host_permissions": ["https://www.developer.chrome.com/*", "https://www.courses.miami.edu/*", "https://canelink.miami.edu/*"],
+    "background": {
+      "service_worker": "background.js"
+    }
+  }
