@@ -53,8 +53,14 @@ document.addEventListener('DOMContentLoaded', () => {
 document.querySelector("#schedule-btn").addEventListener("click", async () => {
 
     if (document.querySelector("#schedule-btn").innerText == "Hide Schedule") {
-        document.querySelector("#schedule").innerHTML = ""
         document.querySelector("#schedule-btn").innerText = "Get Today's Schedule"
+
+        flattenBox()
+
+        setTimeout(() => {
+            document.querySelector("#schedule").remove();
+        }, 500);
+
         return
     }
 
@@ -68,8 +74,8 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
         const formattedDate = currentDate.toISOString().split('T')[0];
 
         chrome.runtime.sendMessage(
-            { action: "fetchData", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_EN.H_SCHEDULE.FieldFormula.IScript_ScheduleByInterval?from=${formattedDate}&thru=${formattedDate}` },
-            // { action: "fetchData", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_EN.H_SCHEDULE.FieldFormula.IScript_ScheduleByInterval?from=2024-10-21&thru=2024-10-21` },
+            // { action: "fetchData", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_EN.H_SCHEDULE.FieldFormula.IScript_ScheduleByInterval?from=${formattedDate}&thru=${formattedDate}` },
+            { action: "fetchData", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_EN.H_SCHEDULE.FieldFormula.IScript_ScheduleByInterval?from=2024-10-21&thru=2024-10-21` },
             (response) => {
                 if (response.success) {
                     resolve(response.response);
@@ -80,8 +86,8 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
         );
     });
 
-    const currentDate = new Date();
-    const dayOfWeek = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+    currentDate = new Date();
+    dayOfWeek = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
 
     convertDay = {
         "Monday": "mon",
@@ -93,8 +99,8 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
         "Sunday": "sun"
     }
 
-    const day = convertDay[dayOfWeek];
-    // day = "mon"
+    // day = convertDay[dayOfWeek];
+    day = "mon"
 
     classes = response['class_schedule']
 
@@ -102,7 +108,7 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
 
     for (lecture of classes) {
         if (lecture[day] == "Y") {
-            schedule[lecture['class_descr'] + " " + lecture['class_descr']] = {
+            schedule[lecture['subject'] + lecture['catalog_nbr'] + " | " + lecture['class_descr'] + " (" + lecture['component'] + ")"] = {
                 "start": lecture['meeting_time_start'],
                 "end": lecture['meeting_time_end'],
                 "location": lecture['facility_descr']
@@ -139,6 +145,19 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
         return `${hours}:${minute} ${period}`;
     }
 
+    today = new Date();
+    formattedDate = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${today.getFullYear()}`;
+
+    scheduleBox = document.createElement("div")
+    scheduleBox.id = "schedule"
+    document.querySelector(".output-box").appendChild(scheduleBox)
+
+    p = document.createElement("p")
+    p.id = "schedule-info"
+    p.innerHTML = `<h3>${dayOfWeek}'s Schedule (${formattedDate}):</h3>`
+    document.querySelector("#schedule").appendChild(p)
+    adjustBoxHeight(p)
+
     sortedSchedule.forEach(([className, classDetails]) => {
         const classElement = document.createElement('div');
         classElement.classList.add('class-item');
@@ -155,6 +174,7 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
         `;
         
         document.querySelector("#schedule").appendChild(classElement);
+        adjustBoxHeight(classElement);
     });
 
     document.querySelector("#schedule-btn").innerText = "Hide Schedule";
@@ -440,6 +460,7 @@ function adjustBoxHeight(tag) {
 }
 
 function flattenBox() {
+    document.querySelector(".output-box").style.maxHeight = "10px";
     document.querySelector(".output-box").style = "";
 }
 
