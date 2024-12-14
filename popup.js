@@ -69,13 +69,13 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
     const url = new URL(tab.url);
     const domain = url.hostname;
 
-    const response = await new Promise((resolve, reject) => {
+    response = await new Promise((resolve, reject) => {
         const currentDate = new Date();
         const formattedDate = currentDate.toISOString().split('T')[0];
 
         chrome.runtime.sendMessage(
-            // { action: "fetchData", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_EN.H_SCHEDULE.FieldFormula.IScript_ScheduleByInterval?from=${formattedDate}&thru=${formattedDate}` },
-            { action: "fetchData", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_EN.H_SCHEDULE.FieldFormula.IScript_ScheduleByInterval?from=2024-10-21&thru=2024-10-21` },
+            { action: "fetchSchedule", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_EN.H_SCHEDULE.FieldFormula.IScript_ScheduleByInterval?from=${formattedDate}&thru=${formattedDate}`, postUrl: "https://canelink.miami.edu:443/Shibboleth.sso/SAML2/POST", type: 'json' },
+            // { action: "fetchSchedule", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_EN.H_SCHEDULE.FieldFormula.IScript_ScheduleByInterval?from=2024-10-21&thru=2024-10-21`, postUrl: "https://canelink.miami.edu:443/Shibboleth.sso/SAML2/POST", type: 'json' },
             (response) => {
                 if (response.success) {
                     resolve(response.response);
@@ -99,10 +99,23 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
         "Sunday": "sun"
     }
 
-    // day = convertDay[dayOfWeek];
-    day = "mon"
+    day = convertDay[dayOfWeek];
+    // day = "mon"
 
     classes = response['class_schedule']
+    
+    if (classes.length == 0) {
+        p = document.createElement("p")
+        p.classList.add("log")
+        p.innerText = "Sleep tight! No classes today."
+        document.querySelector(".output-box").appendChild(p)
+        adjustBoxHeight(document.querySelector("p.log"))
+        setTimeout(() => {
+            p.remove()
+            flattenBox()
+        }, 1500);
+        return
+    }
 
     schedule = {}
 
@@ -115,7 +128,6 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
             }
         }
     }
-
 
     const sortedSchedule = Object.entries(schedule).sort((a, b) => {
         const startTimeA = convertTimeToMinutes(a[1].start);
@@ -184,6 +196,67 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
 document.querySelector('#download-btn').addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
 
+    if (document.querySelector("#current-course").innerText == "NONE") {
+        p = document.createElement("p")
+        p.classList.add("log")
+        p.innerText = "Please navigate to a course page to download files!"
+        document.querySelector(".output-box").appendChild(p)
+        adjustBoxHeight(document.querySelector("p.log"))
+
+        // make all articles flash
+        chrome.scripting.executeScript(
+            {
+                target: { tabId: tab.id },
+                func: function() {
+                    const intervals = [];
+
+                    function startFlashing(element) {
+                        let isFlashing = false;
+                        let borderInterval;
+                    
+                        borderInterval = setInterval(() => {
+                            if (isFlashing) {
+                                element.style.border = '1px solid #cdcdcd';
+                            } else {
+                                element.style.border = '1px solid rgb(255 0 0)';
+                            }
+                            isFlashing = !isFlashing;
+                        }, 300);
+                    
+                        intervals.push(borderInterval);
+                    }
+                
+                    function stopFlashing() {
+                        intervals.forEach(interval => {
+                            clearInterval(interval);
+                        });
+                    
+                        const boxes = document.querySelectorAll('article');
+                        boxes.forEach(box => {
+                            box.style.border = '1px solid #cdcdcd'; 
+                        });
+                    }
+                  
+                    document.querySelectorAll("article").forEach(article => {
+                        console.log("START FLASH", article)
+                        startFlashing(article);
+                    })
+
+                    setTimeout(() => {
+                        stopFlashing();
+                    }, 2000);
+                }
+            },
+            (results) => {}
+        );
+
+        setTimeout(() => {
+            document.querySelector(".output-box").innerHTML = ""
+            flattenBox()
+        }, 1600);
+        return;
+    }
+
     chrome.scripting.executeScript(
         {
             target: { tabId: tab.id },
@@ -234,6 +307,66 @@ document.querySelector("#submission-btn").addEventListener("click", async () => 
     const url = new URL(tab.url);
     const domain = url.hostname;
 
+    if (document.querySelector("#current-course").innerText == "NONE") {
+        p = document.createElement("p")
+        p.classList.add("log")
+        p.innerText = "Please navigate to a course page to download files!"
+        document.querySelector(".output-box").appendChild(p)
+        adjustBoxHeight(document.querySelector("p.log"))
+
+        // make all articles flash
+        chrome.scripting.executeScript(
+            {
+                target: { tabId: tab.id },
+                func: function() {
+                    const intervals = [];
+
+                    function startFlashing(element) {
+                        let isFlashing = false;
+                        let borderInterval;
+                    
+                        borderInterval = setInterval(() => {
+                            if (isFlashing) {
+                                element.style.border = '1px solid #cdcdcd';
+                            } else {
+                                element.style.border = '1px solid rgb(255 0 0)';
+                            }
+                            isFlashing = !isFlashing;
+                        }, 300);
+                    
+                        intervals.push(borderInterval);
+                    }
+                
+                    function stopFlashing() {
+                        intervals.forEach(interval => {
+                            clearInterval(interval);
+                        });
+                    
+                        const boxes = document.querySelectorAll('article');
+                        boxes.forEach(box => {
+                            box.style.border = '1px solid #cdcdcd'; 
+                        });
+                    }
+                  
+                    document.querySelectorAll("article").forEach(article => {
+                        console.log("START FLASH", article)
+                        startFlashing(article);
+                    })
+
+                    setTimeout(() => {
+                        stopFlashing();
+                    }, 2000);
+                }
+            },
+            (results) => {}
+        );
+        
+        setTimeout(() => {
+            document.querySelector(".output-box").innerHTML = ""
+            flattenBox()
+        }, 1600);
+        return;
+    }
     chrome.cookies.getAll({ domain }, async (cookies) => {
         const cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join("; ");
         course_id = tab.url.split("/")[5]
@@ -336,12 +469,74 @@ document.querySelector("#submission-btn").addEventListener("click", async () => 
 // });
 
 
+
 // get all students from class
 document.querySelector("#students-btn").addEventListener("click", async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
     const url = new URL(tab.url);
     const domain = url.hostname;
+
+    if (document.querySelector("#current-course").innerText == "NONE") {
+        p = document.createElement("p")
+        p.classList.add("log")
+        p.innerText = "Please navigate to a course page!"
+        document.querySelector(".output-box").appendChild(p)
+        adjustBoxHeight(document.querySelector("p.log"))
+
+        // make all articles flash
+        chrome.scripting.executeScript(
+            {
+                target: { tabId: tab.id },
+                func: function() {
+                    const intervals = [];
+
+                    function startFlashing(element) {
+                        let isFlashing = false;
+                        let borderInterval;
+                    
+                        borderInterval = setInterval(() => {
+                            if (isFlashing) {
+                                element.style.border = '1px solid #cdcdcd';
+                            } else {
+                                element.style.border = '1px solid rgb(255 0 0)';
+                            }
+                            isFlashing = !isFlashing;
+                        }, 300);
+                    
+                        intervals.push(borderInterval);
+                    }
+                
+                    function stopFlashing() {
+                        intervals.forEach(interval => {
+                            clearInterval(interval);
+                        });
+                    
+                        const boxes = document.querySelectorAll('article');
+                        boxes.forEach(box => {
+                            box.style.border = '1px solid #cdcdcd'; 
+                        });
+                    }
+                  
+                    document.querySelectorAll("article").forEach(article => {
+                        console.log("START FLASH", article)
+                        startFlashing(article);
+                    })
+
+                    setTimeout(() => {
+                        stopFlashing();
+                    }, 2000);
+                }
+            },
+            (results) => {}
+        );
+        
+        setTimeout(() => {
+            document.querySelector(".output-box").innerHTML = ""
+            flattenBox()
+        }, 1600);
+        return;
+    }
 
     if (document.querySelector("#students-btn").innerText == "Hide Students From Class") {
         p = document.querySelector("#students")
@@ -379,7 +574,7 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
             people = {"instructor": [], "grader": [], "students": []}
             lst = data.results
             lst.forEach(person => {
-                person_name = person['user']['name']['given'] + " " + person['user']['name']['family']
+                person_name = person['user']['name']['given'] + " " + person['user']['name']['family'] + "," + person['user']['avatar']['viewUrl']
                 if (person['courseRoleId'] == "Instructor") {
                     people["instructor"].push(person_name)
                 }
@@ -395,22 +590,40 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
 
             message = ""
             if (people.instructor.length > 0) {
-                message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li>${element}</li>`)}`;
+                message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
             }
             
             if (people.grader.length > 0) {
-                message += `<h3>Grader:</h3>${people.grader.map(element => `<li>${element}</li>`)}`;
+                message += `<h3>Grader:</h3>${people.grader.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
             }
             
             if (people.students.length > 0) {
-                message += `<h3>Students:</h3>${people.students.map(element => `<li>${element}</li>`).join("")}`;
+                message += `<h3>Students:</h3>${people.students.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
             }
 
             p = document.createElement("p")
             p.id = "students"
+            message += "<br><br><br><br><br><br><br>"
             p.innerHTML = message
             document.querySelector(".output-box").appendChild(p)
             adjustBoxHeight(p)
+
+            document.querySelectorAll(".student-image").forEach(image => {
+                image.addEventListener("mouseover", (event) => {
+                    event.preventDefault()
+                    student_image = document.createElement("img")
+                    student_image.src = event.target.href
+                    student_image.style = "width: 180px; height: 200px;"
+                    event.target.parentElement.insertAdjacentElement("afterend", student_image)
+                })
+            })
+            document.querySelectorAll(".student-image").forEach(image => {
+                image.addEventListener("mouseout", (event) => {
+                    event.preventDefault()
+                    student_image = document.querySelector("#students img")
+                    student_image.remove()
+                })
+            })
 
             setTimeout(() => {
                 p.classList.add("fade-in");
@@ -424,6 +637,163 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
         });
     });
 });
+
+// function for getting dining dollars
+document.querySelector("#dining-btn").addEventListener("click", async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    const url = new URL(tab.url);
+    const domain = url.hostname;
+
+    response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage(
+            { action: "fetchDining", url: `https://get.cbord.com/miami/full/login.php?2=2` },
+            (response) => {
+                if (response.success) {
+                    resolve(response.response);
+                } else {
+                    reject(response.error);
+                }
+            }
+        );
+    });
+
+    parser = new DOMParser();
+    doc = parser.parseFromString(response, 'text/html');
+
+    funds = doc.querySelector("td.balance").innerText
+
+    p = document.createElement("p")
+    p.classList.add("log")
+    p.innerText = `Dining Dollars: ${funds}`
+    document.querySelector(".output-box").appendChild(p)
+    adjustBoxHeight(document.querySelector("p.log"))
+
+    setTimeout(() => {
+        document.querySelector(".output-box").innerHTML = ""
+        flattenBox()
+    }, 7000);
+
+})
+
+// function for getting current classes
+document.querySelector("#class-search-btn").addEventListener("click", async () => {
+    if (document.querySelector("#class-search-btn").innerText == "Hide Classes") {
+        p = document.querySelector("#classBox")
+        
+        flattenBox()
+
+        setTimeout(() => {
+            p.remove();
+        }, 500);
+
+        document.querySelector("#class-search-btn").innerText = "Class Search"
+        return
+    }
+
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    const url = new URL(tab.url);
+    const domain = url.hostname;
+
+    response = await new Promise((resolve, reject) => {
+        const currentDate = new Date();
+        const formattedDate = currentDate.toISOString().split('T')[0];
+
+        chrome.runtime.sendMessage(
+            { action: "fetchSchedule", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_EN.H_SCHEDULE.FieldFormula.IScript_ScheduleByInterval?from=${formattedDate}&thru=${formattedDate}` , postUrl: "https://canelink.miami.edu:443/Shibboleth.sso/SAML2/POST", type: 'json' },
+            (response) => {
+                if (response.success) {
+                    resolve(response.response);
+                } else {
+                    reject(response.error);
+                }
+            }
+        );
+    });
+
+    current_term = response['term']
+
+    questionBox = document.createElement("div")
+    questionBox.id = "questionBox"
+    inputBox = document.createElement("input")
+    inputBox.id = "class-search-input"
+    inputBox.placeholder = "(MTH210)"
+    inputBox.type = "text"
+    inputBox.autocomplete = "off"
+    inputBox.spellcheck = "false"
+    inputBox.autocorrect = "off"
+    inputBox.autocapitalize = "off"
+    inputBox.maxLength = 6
+
+    searchBtn = document.createElement("button")
+    searchBtn.id = "search-btn"
+    searchBtn.innerText = "Search"
+
+    questionBox.appendChild(inputBox)
+    questionBox.appendChild(searchBtn)
+    document.querySelector(".output-box").appendChild(questionBox)
+    adjustBoxHeight(questionBox)
+
+    document.querySelector("#search-btn").addEventListener("click", async () => {
+        classSubject = document.querySelector("#questionBox input").value.substring(0, 3).toUpperCase()
+        classCode = document.querySelector("#questionBox input").value.substring(3, 6)
+        document.querySelector("#questionBox").remove()
+
+        classes = await new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(
+                { action: "fetchSchedule", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_CM.H_CLASS_SEARCH.FieldFormula.IScript_ClassSearch?institution=MIAMI&term=2251&date_from=&date_thru=&subject=${classSubject}&subject_like=&catalog_nbr=${classCode}&start_time_equals=&start_time_ge=&end_time_equals=&end_time_le=&days=&campus=&location=&x_acad_career=UGRD&acad_group=&rqmnt_designtn=&instruction_mode=&keyword=&class_nbr=&acad_org=&enrl_stat=&crse_attr=&crse_attr_value=&instructor_name=&instr_first_name=&session_code=&units=&trigger_search=&page=1`, postUrl: "https://canelink.miami.edu:443/Shibboleth.sso/SAML2/POST", type: 'json' },
+                (response) => {
+                    if (response.success) {
+                        resolve(response.response);
+                    } else {
+                        reject(response.error);
+                    }
+                }
+            );
+        });
+
+        if (classes.length == 0) {
+            p = document.createElement("p")
+            p.classList.add("log")
+            p.innerText = "No classes found!"
+            document.querySelector(".output-box").appendChild(p)
+            adjustBoxHeight(document.querySelector("p.log"))
+            setTimeout(() => {
+                p.remove()
+                flattenBox()
+            }, 1500);
+            return
+        }
+
+        classBox = document.createElement("div")
+        classBox.id = "classBox"
+        classBox.innerHTML = `<h3>Showing classes for ${classes[0]['acad_org'] + classes[0]['catalog_nbr']} | ${classes[0]['descr']}:</h3>`
+
+        classes.forEach(course => {
+            let courseBox = document.createElement("div")
+            courseBox.classList.add("course-box")
+
+            startTime = convertToNormalTime(course['meetings'][0]['start_time'])
+            endTime = convertToNormalTime(course['meetings'][0]['end_time'])
+            
+            courseBox.innerHTML = `
+                <h3>${course['subject']} ${course['catalog_nbr']} (${course['component']})</h3>
+                <h4>Instructor: ${course['instructors'].map(element => element.name).join(", ")}</h4>
+                <p><strong>${course['meetings'][0]['days']}</strong> ${startTime} - ${endTime}
+                <p><strong>Location:</strong> ${course['meetings'][0]['facility_descr']}</p>
+            `
+            classBox.appendChild(courseBox)
+        })
+
+        document.querySelector(".output-box").appendChild(classBox)
+
+        adjustBoxHeight(classBox)
+
+        document.querySelector("#class-search-btn").innerText = "Hide Classes"
+    })
+
+})
 
 
 // gets all link that have bbcswebdav in them
@@ -447,21 +817,42 @@ function getLinks() {
     return files
 }
 
+function convertToNormalTime(inputTime) {
+    const correctedTime = inputTime.replace(/\./g, ':');
+    
+    const [timePart, offset] = correctedTime.split('-');
+    [hours, minutes] = timePart.split(':').map(Number);
+
+    hours = hours - 2;
+    
+    const date = new Date();
+    date.setUTCHours(hours - parseInt(offset), minutes, 0, 0);
+
+    let hour = date.getHours();
+    const isPM = hour >= 12;
+    hour = hour % 12 || 12; 
+    const formattedTime = `${hour}:${String(date.getMinutes()).padStart(2, '0')} ${isPM ? 'AM' : 'PM'}`;
+
+    return formattedTime;
+}
 
 // just for css transitions
 function adjustBoxHeight(tag) {
     if (isNaN(parseFloat(document.querySelector(".output-box").style.maxHeight))) {
-        height = tag.scrollHeight + 100;
+        height = tag.scrollHeight + 200;
+        document.querySelector(".output-box").style.maxHeight = `${height}px`;
     }
     else {
-        height = parseFloat(document.querySelector(".output-box").style.maxHeight) + tag.scrollHeight + 100;
+        height = parseFloat(document.querySelector(".output-box").style.maxHeight) + tag.scrollHeight + 200;
+        document.querySelector(".output-box").style.maxHeight = `${height}px`;
     }
-    document.querySelector(".output-box").style.maxHeight = `${height}px`;
 }
 
 function flattenBox() {
     document.querySelector(".output-box").style.maxHeight = "10px";
-    document.querySelector(".output-box").style = "";
+    setTimeout(() => {
+        document.querySelector(".output-box").style = "";
+    }, 1000);
 }
 
 
