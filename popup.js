@@ -795,6 +795,120 @@ document.querySelector("#class-search-btn").addEventListener("click", async () =
 
 })
 
+// function for showing overlapping students
+document.querySelector("#overlap-btn").addEventListener("click", async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    const url = new URL(tab.url);
+    const domain = url.hostname;
+
+    if (document.querySelector("#overlap-btn").innerText == "Hide Overlap Students") {
+        p = document.querySelector("#overlap-box")
+
+        setTimeout(() => {
+            p.classList.remove("fade-in");
+            p.classList.add("fade-out");
+          
+            flattenBox()
+
+            setTimeout(() => {
+                p.remove();
+            }, 500);
+
+          }, 500);
+
+        document.querySelector("#students-btn").innerText = "Get Students From Class"
+        return
+    }
+
+    chrome.cookies.getAll({ domain }, async (cookies) => {
+        const cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join("; ");
+        
+        headers = {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Cookie': cookieString,
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        }
+
+        response = await new Promise((resolve, reject) => {
+            const currentDate = new Date();
+            const formattedDate = currentDate.toISOString().split('T')[0];
+    
+            chrome.runtime.sendMessage(
+                { action: "fetchSchedule", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_EN.H_SCHEDULE.FieldFormula.IScript_ScheduleByInterval?from=${formattedDate}&thru=${formattedDate}` , postUrl: "https://canelink.miami.edu:443/Shibboleth.sso/SAML2/POST", type: 'json' },
+                (response) => {
+                    if (response.success) {
+                        resolve(response.response);
+                    } else {
+                        reject(response.error);
+                    }
+                }
+            );
+        });
+    
+        current_term = response['term_descr']
+        current_term = "Fall 2024"
+
+        response = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/users/me`, {headers: headers})
+        response = await response.json()
+
+        user_name = response['name']['given'] + " " + response['name']['family']
+
+        response = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/users/me/courses?expand=course`, {headers: headers})
+        response = await response.json()
+        courses = response['results']
+
+        course_ids = courses
+        .filter(course => course['course']['name'].includes(current_term))
+        .map(course => course['course']['id'] + "," + course['course']['courseId'].substring(0, 6));
+
+        students = {}
+        overlaps = ""
+
+        await Promise.all(course_ids.map(async course_id => {
+            const [course_api_id, course_name] = course_id.split(",");
+            const res = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_api_id}/users?expand=user`, { headers });
+
+            if (res.status !== 403) {
+                const data = await res.json();
+                const results = data['results'];
+
+                results.forEach(person => {
+                    const person_name = person['user']['name']['given'] + " " + person['user']['name']['family'];
+                    if (person['courseRoleId'] === "Student" && person_name !== user_name && !person_name.includes("Preview")) {
+                        if (!students[person_name]) {
+                            students[person_name] = { count: 0, courses: [] };
+                        }
+                        students[person_name].count += 1;
+                        students[person_name].courses.push(course_name);
+                    }
+                });
+            }
+        }));
+
+        overlapBox = document.createElement("div")
+        overlapBox.id = "overlap-box"
+        overlapBox.innerHTML = `<h3>Overlapping Students (${current_term}):</h3>`
+        
+        overlaps = Object.entries(students)
+            .filter(([_, details]) => details.count > 1)
+            .sort(([, a], [, b]) => b.count - a.count) // Sort by count in descending order
+            .map(([student, details]) => 
+                `<li>${student} (${details.count} classes): ${details.courses.join(", ")}</li>`
+        );
+        
+        console.log(students);
+        console.log(overlaps)
+
+        overlapBox.innerHTML += `<ul>${overlaps.join("<br>")}</ul>`
+
+        document.querySelector(".output-box").appendChild(overlapBox)
+        adjustBoxHeight(overlapBox)
+
+        document.querySelector("#overlap-btn").innerText = "Hide Overlap Students"
+        
+    })
+})
 
 // gets all link that have bbcswebdav in them
 function getLinks() {
