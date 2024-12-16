@@ -196,6 +196,9 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
 document.querySelector('#download-btn').addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
 
+    const url = new URL(tab.url);
+    const domain = url.hostname;
+    
     if (document.querySelector("#current-course").innerText == "NONE") {
         p = document.createElement("p")
         p.classList.add("log")
@@ -257,47 +260,222 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
         return;
     }
 
-    chrome.scripting.executeScript(
-        {
-            target: { tabId: tab.id },
-            func: getLinks
-        },
-        async (results) => {
-            const fileLinks = results[0].result
+    async function recursiveFetch(headers, result, course_id) {
+        folder = await fetch(`https://www.courses.miami.edu/learn/api/v1/courses/${course_id}/contents/${result['id']}/children`, {headers: headers})
+        folder = await folder.json()
+        folder = folder['results']
 
-            if (fileLinks.length === 0) {
-                document.querySelector("#status").innerHTML = "<p class='log'>No files found!</p>"
+        for (file of folder) {
+            if (file['contentHandler'] == "resource/x-bb-file") {
+                file_name = file['contentDetail']['resource/x-bb-file']['file']['fileName']
 
-                setTimeout(() => {
-                    setTimeout(() => {
-                        document.querySelector(".log").classList.add("fade-out-swipe");
-            
-                        setTimeout(() => {
-                            document.querySelector(".log").style.display = "none";
-                        }, 450);
-                    }, 350);
-                }, 1600);
+                try {
+                    download = await fetch(encodeURI("https://www.courses.miami.edu" + file['contentDetail']['resource/x-bb-file']['file']['permanentUrl'], {headers: headers}))
+                    blob = await download.blob()
 
-                return
+                    const downloadUrl = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = downloadUrl;
+                    a.download = file_name;
+                    a.click();
+                    URL.revokeObjectURL(downloadUrl);
+                }
+                catch (error) {
+                    console.error(error)
+                }
             }
-            
-            fileLinks.forEach(url => {
-                chrome.downloads.download({ url })
-            })
+            else if (file['contentHandler'] == "resource/x-bb-document") {
+                attachments = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${file['id']}/attachments`, {headers: headers})
+                attachments = await attachments.json()
+                attachments = attachments['results']
 
-            document.querySelector("#status").innerHTML = "<p class='log'>Downloaded all files!</p>"
+                for (attachment of attachments) {
+                    attachment_id = attachment['id']
 
-            setTimeout(() => {
+                    download = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${file['id']}/attachments/${attachment_id}/download`, {headers: headers})
+                    blob = await download.blob()
+
+                    file_name = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${file['id']}/attachments/${attachment_id}`, {headers: headers})
+                    file_name = await file_name.json()
+                    file_name = file_name['fileName']
+
+                    if (file_name == "undefined") {
+                        file_name = attachment['fileName']
+                    }
+
+                    const downloadUrl = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = downloadUrl;
+                    a.download = file_name;
+                    a.click();
+                    URL.revokeObjectURL(downloadUrl);
+                }
+            }
+            else if (file['contentHandler'] == "resource/x-bb-folder") {
+                await recursiveFetch(headers, file, course_id)
+            }
+
+            document.querySelector("#status").innerHTML += `<p class='log'>Downloaded ${file_name}</p>`
+            adjustBoxHeight(document.querySelector("p.log"))
+        }
+
+        // fade out rest of stuff
+        setTimeout(() => {
+            const paragraphs = document.querySelectorAll(".log");
+    
+            paragraphs.forEach((p, index) => {
                 setTimeout(() => {
-                    document.querySelector(".log").classList.add("fade-out-swipe");
+                    p.classList.add("fade-out-swipe");
         
                     setTimeout(() => {
-                        document.querySelector(".log").style.display = "none";
+                        p.style.display = "none";
                     }, 450);
-                }, 350);
-            }, 1600);
+                }, index * 350);
+            });
+        }, 1600);
+    }
+
+    chrome.cookies.getAll({ domain }, async (cookies) => {
+        const cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join("; ");
+        course_id = tab.url.split("/")[5]
+
+        headers = {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Cookie': cookieString,
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         }
-    )
+
+        results = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/`, {headers: headers})
+        results = await results.json()
+        results = results['results']
+
+        for (result of results) {
+            if (result['title'] == "Course Documents") {
+                documents_id = result['id']
+                break
+            }
+        }
+
+        try {
+            results = await fetch(`https://www.courses.miami.edu/learn/api/v1/courses/${course_id}/contents/${documents_id}/children`)
+            results = await results.json()
+            results = results['results']
+        }
+        catch {}
+
+        for (result of results) {
+            if (result['contentHandler'] == "resource/x-bb-folder") {
+                await recursiveFetch(headers, result, course_id);
+                continue
+            }
+            else if (result['contentHandler'] == "resource/x-bb-file") {
+                file_name = result['contentDetail']['resource/x-bb-file']['file']['fileName']
+
+                try {
+                    download = await fetch(encodeURI("https://www.courses.miami.edu" + result['contentDetail']['resource/x-bb-file']['file']['permanentUrl'], {headers: headers}))
+                    blob = await download.blob()
+
+                    const downloadUrl = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = downloadUrl;
+                    a.download = file_name;
+                    a.click();
+                    URL.revokeObjectURL(downloadUrl);
+                }
+                catch (error) {
+                    console.error(error)
+                }
+            }
+            else if (result['contentHandler'] == "resource/x-bb-document") {
+                attachments = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${result['id']}/attachments`, {headers: headers})
+                attachments = await attachments.json()
+                attachments = attachments['results']
+
+                for (attachment of attachments) {
+                    attachment_id = attachment['id']
+
+                    download = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${result['id']}/attachments/${attachment_id}/download`, {headers: headers})
+                    blob = await download.blob()
+
+                    file_name = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${result['id']}/attachments/${attachment_id}`, {headers: headers})
+                    file_name = await file_name.json()
+                    file_name = file_name['fileName']
+
+                    if (file_name == "undefined") {
+                        file_name = attachment['fileName']
+                    }
+
+                    const downloadUrl = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = downloadUrl;
+                    a.download = file_name;
+                    a.click();
+                    URL.revokeObjectURL(downloadUrl);
+                }
+            }
+
+            document.querySelector("#status").innerHTML += `<p class='log'>Downloaded ${file_name}</p>`
+            adjustBoxHeight(document.querySelector("p.log"))
+        }
+
+        // fade out rest of stuff
+        setTimeout(() => {
+            const paragraphs = document.querySelectorAll(".log");
+    
+            paragraphs.forEach((p, index) => {
+                setTimeout(() => {
+                    p.classList.add("fade-out-swipe");
+        
+                    setTimeout(() => {
+                        p.style.display = "none";
+                    }, 450);
+                }, index * 350);
+            });
+        }, 1600);
+
+    })
+
+    // chrome.scripting.executeScript(
+    //     {
+    //         target: { tabId: tab.id },
+    //         func: getLinks
+    //     },
+    //     async (results) => {
+    //         const fileLinks = results[0].result
+
+    //         if (fileLinks.length === 0) {
+    //             document.querySelector("#status").innerHTML = "<p class='log'>No files found!</p>"
+
+    //             setTimeout(() => {
+    //                 setTimeout(() => {
+    //                     document.querySelector(".log").classList.add("fade-out-swipe");
+            
+    //                     setTimeout(() => {
+    //                         document.querySelector(".log").style.display = "none";
+    //                     }, 450);
+    //                 }, 350);
+    //             }, 1600);
+
+    //             return
+    //         }
+            
+    //         fileLinks.forEach(url => {
+    //             chrome.downloads.download({ url })
+    //         })
+
+    //         document.querySelector("#status").innerHTML = "<p class='log'>Downloaded all files!</p>"
+
+    //         setTimeout(() => {
+    //             setTimeout(() => {
+    //                 document.querySelector(".log").classList.add("fade-out-swipe");
+        
+    //                 setTimeout(() => {
+    //                     document.querySelector(".log").style.display = "none";
+    //                 }, 450);
+    //             }, 350);
+    //         }, 1600);
+    //     }
+    // )
 })
 
 // function for downloading all submissions
@@ -367,6 +545,7 @@ document.querySelector("#submission-btn").addEventListener("click", async () => 
         }, 1600);
         return;
     }
+
     chrome.cookies.getAll({ domain }, async (cookies) => {
         const cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join("; ");
         course_id = tab.url.split("/")[5]

@@ -8,7 +8,7 @@
       "default_icon": "logo.png"
     },
     "permissions": ["downloads", "activeTab", "scripting", "cookies", "storage", "webRequest", "declarativeNetRequest"],
-    "host_permissions": ["https://www.developer.chrome.com/*", "https://www.courses.miami.edu/*", "https://canelink.miami.edu/*", "https://auth.miami.edu/*", "https://get.cbord.com/*"],
+    "host_permissions": ["https://www.developer.chrome.com/*", "https://www.courses.miami.edu/*", "https://canelink.miami.edu/*", "https://auth.miami.edu/*", "https://get.cbord.com/*", "https://alt-5a33ed4744755.blackboard.com/*"],
     "background": {
       "service_worker": "background.js"
     }
