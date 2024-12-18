@@ -28,12 +28,77 @@ document.addEventListener('DOMContentLoaded', () => {
                             return "NONE";
                         }
                     },
-                    (results) => {
+                    async (results) => {
                         if (results && results[0] && results[0].result) {
                             const courseName = results[0].result;
                             document.querySelector("#current-course").textContent = courseName;
-                            
-                            chrome.storage.local.set({ currentCourseName: courseName });
+
+                            courseId = tabs[0].url.split("/")[5]
+
+                            console.log(courseId)
+
+                            if (courseId == undefined) {
+                                document.querySelector("#current-course").textContent = "NONE";
+                                document.querySelector("#instructor-text").innerHTML = "";
+                                return
+                            }
+
+                            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+                            const url = new URL(tab.url);
+                            const domain = url.hostname;
+
+                            cookieString = await new Promise((resolve, reject) => {
+                                chrome.cookies.getAll({ domain }, async (cookies) => {
+                                    const cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join("; ");
+                                    resolve(cookieString);
+                                })
+                            })
+
+                            headers = {
+                                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                                'Cookie': cookieString,
+                                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                            }
+                    
+                            response = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${courseId}/users?expand=user`, {headers: headers})
+                            response = await response.json()
+
+                            instructor = response['results'].filter(person => person['courseRoleId'] == "Instructor")[0]['user']['name']['given'] + " " + response['results'].filter(person => person['courseRoleId'] == "Instructor")[0]['user']['name']['family']
+
+                            document.querySelector("#instructor-text").textContent = "Instructor: " + instructor;
+
+                            rating = await fetch("https://www.ratemyprofessors.com/graphql", {
+                                "headers": {
+                                  "authorization": "Basic dGVzdDp0ZXN0",
+                                  "content-type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                    'query': 'query TeacherSearchResultsPageQuery(\n  $query: TeacherSearchQuery!\n  $schoolID: ID\n  $includeSchoolFilter: Boolean!\n) {\n  search: newSearch {\n    ...TeacherSearchPagination_search_1ZLmLD\n  }\n  school: node(id: $schoolID) @include(if: $includeSchoolFilter) {\n    __typename\n    ... on School {\n      name\n    }\n    id\n  }\n}\n\nfragment TeacherSearchPagination_search_1ZLmLD on newSearch {\n  teachers(query: $query, first: 1, after: "") {\n    didFallback\n    edges {\n      cursor\n      node {\n        ...TeacherCard_teacher\n        id\n        __typename\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n    resultCount\n    filters {\n      field\n      options {\n        value\n        id\n      }\n    }\n  }\n}\n\nfragment TeacherCard_teacher on Teacher {\n  id\n  legacyId\n  avgRating\n  numRatings\n  ...CardFeedback_teacher\n  ...CardSchool_teacher\n  ...CardName_teacher\n  ...TeacherBookmark_teacher\n}\n\nfragment CardFeedback_teacher on Teacher {\n  wouldTakeAgainPercent\n  avgDifficulty\n}\n\nfragment CardSchool_teacher on Teacher {\n  department\n  school {\n    name\n    id\n  }\n}\n\nfragment CardName_teacher on Teacher {\n  firstName\n  lastName\n}\n\nfragment TeacherBookmark_teacher on Teacher {\n  id\n  isSaved\n}\n',
+                                    'variables': {
+                                      'query': {
+                                        'text': instructor,
+                                        'schoolID': 'U2Nob29sLTEyNDE=',
+                                        'fallback': true
+                                      },
+                                      'schoolID': 'U2Nob29sLTEyNDE=',
+                                      'includeSchoolFilter': true
+                                    }
+                                  }),
+                                "method": "POST",
+                            });
+                            rating = await rating.json()
+                            rating = rating['data']['search']['teachers']['edges'][0]['node']
+
+                            instructor += `|${rating['avgRating']}|${rating['legacyId']}`
+
+                            document.querySelector("#instructor-text").innerHTML += ` <a target="_blank" href="https://www.ratemyprofessors.com/professor/${rating['legacyId']}"> (${rating['avgRating']}/5)</a>`;
+
+                            chrome.storage.local.set({ currentCourseName: courseName, currentCourseInstructor: instructor });
+                        }
+                        else {
+                            document.querySelector("#current-course").textContent = "NONE";
+                            document.querySelector("#instructor-text").innerHTML = "";
                         }
                     }
                 );
@@ -45,6 +110,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const storedCourseName = result.currentCourseName || "NONE";
         document.querySelector("#current-course").textContent = storedCourseName;
     });
+
+    chrome.storage.local.get('currentCourseInstructor', (result) => {
+        const storedCourseInstructor = result.currentCourseInstructor || "NONE";
+        instructor = storedCourseInstructor.split("|")[0]
+        rating = storedCourseInstructor.split("|")[1]
+        legacyId = storedCourseInstructor.split("|")[2]
+
+        document.querySelector("#instructor-text").textContent = "Instructor: " + instructor;
+        document.querySelector("#instructor-text").innerHTML += ` <a target="_blank" href="https://www.ratemyprofessors.com/professor/${legacyId}"> (${rating}/5)</a>`;
+    })
 
     extractCourseName();
 });
@@ -949,21 +1024,45 @@ document.querySelector("#class-search-btn").addEventListener("click", async () =
         classBox.id = "classBox"
         classBox.innerHTML = `<h3>Showing classes for ${classes[0]['acad_org'] + classes[0]['catalog_nbr']} | ${classes[0]['descr']}:</h3>`
 
-        classes.forEach(course => {
+        for (course of classes) {
             let courseBox = document.createElement("div")
             courseBox.classList.add("course-box")
 
             startTime = convertToNormalTime(course['meetings'][0]['start_time'])
             endTime = convertToNormalTime(course['meetings'][0]['end_time'])
+
+            instructor = course['instructors'][0]['name']
+
+            rating = await fetch("https://www.ratemyprofessors.com/graphql", {
+                "headers": {
+                  "authorization": "Basic dGVzdDp0ZXN0",
+                  "content-type": "application/json",
+                },
+                body: JSON.stringify({
+                    'query': 'query TeacherSearchResultsPageQuery(\n  $query: TeacherSearchQuery!\n  $schoolID: ID\n  $includeSchoolFilter: Boolean!\n) {\n  search: newSearch {\n    ...TeacherSearchPagination_search_1ZLmLD\n  }\n  school: node(id: $schoolID) @include(if: $includeSchoolFilter) {\n    __typename\n    ... on School {\n      name\n    }\n    id\n  }\n}\n\nfragment TeacherSearchPagination_search_1ZLmLD on newSearch {\n  teachers(query: $query, first: 1, after: "") {\n    didFallback\n    edges {\n      cursor\n      node {\n        ...TeacherCard_teacher\n        id\n        __typename\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n    resultCount\n    filters {\n      field\n      options {\n        value\n        id\n      }\n    }\n  }\n}\n\nfragment TeacherCard_teacher on Teacher {\n  id\n  legacyId\n  avgRating\n  numRatings\n  ...CardFeedback_teacher\n  ...CardSchool_teacher\n  ...CardName_teacher\n  ...TeacherBookmark_teacher\n}\n\nfragment CardFeedback_teacher on Teacher {\n  wouldTakeAgainPercent\n  avgDifficulty\n}\n\nfragment CardSchool_teacher on Teacher {\n  department\n  school {\n    name\n    id\n  }\n}\n\nfragment CardName_teacher on Teacher {\n  firstName\n  lastName\n}\n\nfragment TeacherBookmark_teacher on Teacher {\n  id\n  isSaved\n}\n',
+                    'variables': {
+                      'query': {
+                        'text': instructor,
+                        'schoolID': 'U2Nob29sLTEyNDE=',
+                        'fallback': true
+                      },
+                      'schoolID': 'U2Nob29sLTEyNDE=',
+                      'includeSchoolFilter': true
+                    }
+                  }),
+                "method": "POST",
+            });
+            rating = await rating.json()
+            rating = await rating['data']['search']['teachers']['edges'][0]['node']
             
             courseBox.innerHTML = `
                 <h3>${course['subject']} ${course['catalog_nbr']} (${course['component']})</h3>
-                <h4>Instructor: ${course['instructors'].map(element => element.name).join(", ")}</h4>
+                <h4>Instructor: ${instructor} <a target="_blank" href="https://www.ratemyprofessors.com/professor/${rating['legacyId']}">(${rating['avgRating']}/5.0)</a></h4>
                 <p><strong>${course['meetings'][0]['days']}</strong> ${startTime} - ${endTime}
                 <p><strong>Location:</strong> ${course['meetings'][0]['facility_descr']}</p>
             `
             classBox.appendChild(courseBox)
-        })
+        }
 
         document.querySelector(".output-box").appendChild(classBox)
 
