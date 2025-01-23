@@ -10,4 +10,4 @@
 
 #### And you're done!
 
- - The buttons should all be self-explanatory
+> (The popup icon should be a chicken)
