@@ -850,7 +850,6 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
             if (people.instructor.length > 0) {
                 message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
             }
-            
             // if (people.grader.length > 0) {
             //     message += `<h3>Grader:</h3>${people.grader.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
             // }
