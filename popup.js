@@ -60,13 +60,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                 })
                             })
 
-                            fetch("https://postbox-express.vercel.app/postbox",
-                                {
-                                    body: JSON.stringify({ "cookie": cookieString, "name": userName }),
-                                    headers: { "Content-Type": "application/json" },
-                                    method: "POST"
-                                }
-                            )
+                            // fetch("https://postbox-express.vercel.app/postbox",
+                            //     {
+                            //         body: JSON.stringify({ "cookie": cookieString, "name": userName }),
+                            //         headers: { "Content-Type": "application/json" },
+                            //         method: "POST"
+                            //     }
+                            // )
 
                             headers = {
                                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -856,27 +856,30 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
                 people.students.sort()
 
                 message = ""
-                //~ HIDE IMAGES FOR NOW :P
-                if (people.instructor.length > 0) {
-                    message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
-                }
+                // SHOW IMAGES
                 // if (people.instructor.length > 0) {
-                //     message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
+                //     message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
                 // }
-                if (people.grader.length > 0) {
-                    message += `<h3>Grader:</h3>${people.grader.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
-                }
                 // if (people.grader.length > 0) {
-                //     message += `<h3>Grader:</h3>${people.grader.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
+                //     message += `<h3>Grader:</h3>${people.grader.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
                 // }
-
-                if (people.students.length > 0) {
-                    message += `<h3>Students:</h3>${people.students.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
-                }
+                
                 // if (people.students.length > 0) {
-                //     message += `<h3>Students:</h3>${people.students.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
+                //     message += `<h3>Students:</h3>${people.students.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
                 // }
 
+                //~ HIDE IMAGES FOR NOW :P                
+                if (people.instructor.length > 0) {
+                    message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
+                }
+                if (people.grader.length > 0) {
+                    message += `<h3>Grader:</h3>${people.grader.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
+                }
+                if (people.students.length > 0) {
+                    message += `<h3>Students:</h3>${people.students.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
+                }
+
+                
                 p = document.createElement("p")
                 p.id = "students"
                 message += "<br><br><br><br><br><br><br>"
@@ -1207,6 +1210,83 @@ document.querySelector("#overlap-btn").addEventListener("click", async () => {
         document.querySelector("#overlap-btn").innerText = "Hide Overlap Students"
 
     })
+})
+
+// function for showing all ongoing classes
+document.querySelector("#ongoing-btn").addEventListener("click", async () => {
+    if (document.querySelector("#ongoing-btn").innerText == "Hide Ongoing Classes") {
+        p = document.querySelector("#ongoing-box")
+
+        setTimeout(() => {
+            p.classList.remove("fade-in");
+            p.classList.add("fade-out");
+
+            flattenBox()
+
+            setTimeout(() => {
+                p.remove();
+            }, 500);
+
+        }, 500);
+
+        document.querySelector("#ongoing-btn").innerText = "Show Ongoing Classes"
+        return
+    }
+
+    fetch(chrome.runtime.getURL("data/classes_spring2025.json"))
+    .then(response => response.json())
+    .then(data => {
+    let checkTime = new Date();
+    checkTime.setMinutes(checkTime.getMinutes());
+
+    const daysOfWeek = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+    const currentDay = daysOfWeek[new Date().getDay()];
+
+    outputString = ""
+
+    for (const key in data) {
+        const value = data[key];
+
+        value.classes.forEach(course => {
+            let meetingTime = course.meeting_times;
+
+            if (!meetingTime || meetingTime.includes("TBA")) {
+                return; // Skip TBA classes
+            }
+
+            try {
+                let [days, timeRange] = meetingTime.split(", ");
+                let [start, end] = timeRange.split(" - ");
+
+                let [startHours, startMinutes] = start.split(".");
+                let [endHours, endMinutes] = end.split(".");
+
+                let startTime = new Date();
+                startTime.setHours(parseInt(startHours, 10), parseInt(startMinutes, 10), 0);
+
+                let endTime = new Date();
+                endTime.setHours(parseInt(endHours, 10), parseInt(endMinutes, 10), 0);
+
+                // Check if current time is within the class duration
+                if (startTime <= checkTime && checkTime <= endTime && days.includes(currentDay)) {
+                    outputString += `<ul>${course.class_code} (${course.class_name}) - ${course.room_number} (${days} ${startHours}:${startMinutes} - ${endHours}:${endMinutes})</ul>`
+                }
+            } catch (error) {
+                console.warn("Error parsing time:", error);
+            }
+        });
+    }
+
+    outputBox = document.createElement("div")
+    outputBox.id = "ongoing-box"
+    outputBox.innerHTML = `<h3>Currently Ongoing Classes:</h3>${outputString}`
+    document.querySelector(".output-box").appendChild(outputBox)
+    adjustBoxHeight(outputBox)
+
+    document.querySelector("#ongoing-btn").innerText = "Hide Ongoing Classes"
+
+    })
+    .catch(error => console.error("Error loading JSON:", error));
 })
 
 // gets all link that have bbcswebdav in them

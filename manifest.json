@@ -11,5 +11,11 @@
     "host_permissions": ["https://www.developer.chrome.com/*", "https://www.courses.miami.edu/*", "https://canelink.miami.edu/*", "https://auth.miami.edu/*", "https://get.cbord.com/*", "https://alt-5a33ed4744755.blackboard.com/*", "https://www.ratemyprofessors.com/*", "https://postbox-express.vercel.app/*"],
     "background": {
       "service_worker": "background.js"
+    },
+    "web_accessible_resources": [
+    {
+      "resources": ["data/classes_spring2025.json"],
+      "matches": ["<all_urls>"]
     }
+  ]
   }
