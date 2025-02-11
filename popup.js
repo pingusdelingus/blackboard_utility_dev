@@ -940,13 +940,15 @@ document.querySelector("#dining-btn").addEventListener("click", async () => {
     parser = new DOMParser();
     doc = parser.parseFromString(response, 'text/html');
 
-    funds = doc.querySelector("td.balance").innerText
+    funds = doc.querySelector("table").innerHTML
 
-    p = document.createElement("p")
+    console.log(funds)
+
+    p = document.createElement("table")
     p.classList.add("log")
-    p.innerText = `Dining Dollars: ${funds}`
+    p.innerHTML = funds
     document.querySelector(".output-box").appendChild(p)
-    adjustBoxHeight(document.querySelector("p.log"))
+    adjustBoxHeight(document.querySelector("table.log"))
 
     setTimeout(() => {
         document.querySelector(".output-box").innerHTML = ""
