@@ -934,7 +934,7 @@ document.querySelector("#dining-btn").addEventListener("click", async () => {
 
         }, 500);
 
-        document.querySelector("#dining-dollars").innerText = "Show Dining Dollars"
+        document.querySelector("#dining-btn").innerText = "Show Dining Dollars"
         return
     }
 
