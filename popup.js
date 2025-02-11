@@ -970,19 +970,38 @@ document.querySelector("#dining-btn").addEventListener("click", async () => {
     document.querySelector("#dining-btn").innerText = "Hide Dining Dollars"
 })
 
-// function for getting current classes
+// function searching classes
 document.querySelector("#class-search-btn").addEventListener("click", async () => {
     if (document.querySelector("#class-search-btn").innerText == "Hide Classes") {
         p = document.querySelector("#classBox")
 
-        flattenBox()
+        if (p != null) {
+            p = document.querySelector("#classBox")
+    
+            flattenBox()
+    
+            setTimeout(() => {
+                p.remove();
+            }, 500);
+    
+            document.querySelector("#class-search-btn").innerText = "Class Search"
+            return
+        }
+        else {
+            p = document.querySelector("#class-search-input")
 
-        setTimeout(() => {
-            p.remove();
-        }, 500);
+            flattenBox()
+    
+            setTimeout(() => {
+                document.querySelector("#search-btn").remove()
+                p.remove();
+            }, 500);
 
-        document.querySelector("#class-search-btn").innerText = "Class Search"
-        return
+    
+            document.querySelector("#class-search-btn").innerText = "Class Search"
+            return
+        }
+
     }
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -1028,6 +1047,8 @@ document.querySelector("#class-search-btn").addEventListener("click", async () =
     questionBox.appendChild(searchBtn)
     document.querySelector(".output-box").appendChild(questionBox)
     adjustBoxHeight(questionBox)
+
+    document.querySelector("#class-search-btn").innerText = "Hide Classes"
 
     document.querySelector("#search-btn").addEventListener("click", async () => {
         classSubject = document.querySelector("#questionBox input").value.substring(0, 3).toUpperCase()
