@@ -919,6 +919,25 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
 
 // function for getting dining dollars
 document.querySelector("#dining-btn").addEventListener("click", async () => {
+    if (document.querySelector("#dining-btn").innerText == "Hide Dining Dollars") {
+        p = document.querySelector("table")
+
+        setTimeout(() => {
+            p.classList.remove("fade-in");
+            p.classList.add("fade-out");
+
+            flattenBox()
+
+            setTimeout(() => {
+                p.remove();
+            }, 500);
+
+        }, 500);
+
+        document.querySelector("#dining-dollars").innerText = "Show Dining Dollars"
+        return
+    }
+
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
     const url = new URL(tab.url);
@@ -942,19 +961,13 @@ document.querySelector("#dining-btn").addEventListener("click", async () => {
 
     funds = doc.querySelector("table").innerHTML
 
-    console.log(funds)
-
     p = document.createElement("table")
     p.classList.add("log")
     p.innerHTML = funds
     document.querySelector(".output-box").appendChild(p)
     adjustBoxHeight(document.querySelector("table.log"))
 
-    setTimeout(() => {
-        document.querySelector(".output-box").innerHTML = ""
-        flattenBox()
-    }, 7000);
-
+    document.querySelector("#dining-btn").innerText = "Hide Dining Dollars"
 })
 
 // function for getting current classes
