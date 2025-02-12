@@ -1156,7 +1156,7 @@ document.querySelector("#overlap-btn").addEventListener("click", async () => {
 
         }, 500);
 
-        document.querySelector("#students-btn").innerText = "Get Students From Class"
+        document.querySelector("#overlap-btn").innerText = "Show Overlap Students"
         return
     }
 
