@@ -1305,7 +1305,7 @@ document.querySelector("#ongoing-btn").addEventListener("click", async () => {
 
                 // Check if current time is within the class duration
                 if (startTime <= checkTime && checkTime <= endTime && days.includes(currentDay)) {
-                    outputString += `<ul>${course.class_code} (${course.class_name}) - ${course.room_number} (${days} ${startHours}:${startMinutes} - ${endHours}:${endMinutes})</ul>`
+                    outputString += `<ul>${course.class_code} (${course.class_name}) - <strong>${course.room_number}</strong> | ${course.professor} | (${days} ${startHours}:${startMinutes} - ${endHours}:${endMinutes})</ul>`
                 }
             } catch (error) {
                 console.warn("Error parsing time:", error);
@@ -1314,12 +1314,55 @@ document.querySelector("#ongoing-btn").addEventListener("click", async () => {
     }
 
     outputBox = document.createElement("div")
+
+    filterInput = document.createElement("input")
+    filterInput.id = "filter-input"
+    filterInput.placeholder = "Filter classes"
+    filterInput.style.width = "160px"
+    filterInput.style.margin = "0 10px 10px 0"
+    outputBox.appendChild(filterInput)
+
+    filterButton = document.createElement("button")
+    filterButton.id = "filter-button"
+    filterButton.innerText = "Filter"
+    outputBox.appendChild(filterButton)
+
+    resetButton = document.createElement("button")
+    resetButton.id = "reset-button"
+    resetButton.innerText = "Reset"
+    resetButton.style.margin = "0 15px"
+    outputBox.appendChild(resetButton)
+    
     outputBox.id = "ongoing-box"
-    outputBox.innerHTML = `<h3>Currently Ongoing Classes:</h3>${outputString}`
+    outputBox.innerHTML += `<h3>Currently Ongoing Classes:</h3>${outputString}`
+
     document.querySelector(".output-box").appendChild(outputBox)
     adjustBoxHeight(outputBox)
 
     document.querySelector("#ongoing-btn").innerText = "Hide Ongoing Classes"
+
+    document.querySelector("#filter-button").addEventListener("click", () => {
+        const filterText = document.querySelector("#filter-input").value;
+        const classes = document.querySelectorAll("#ongoing-box ul");
+
+        classes.forEach(course => {
+            if (course.innerText.toLowerCase().includes(filterText.toLowerCase())) {
+                course.innerHTML = course.innerHTML.replace(filterText, `<span style="background-color: #ff9090;">${filterText}</span>`);
+                course.style.display = "block";
+            } else {
+                course.style.display = "none";
+            }
+        });
+    });
+
+    document.querySelector("#reset-button").addEventListener("click", () => {
+        const classes = document.querySelectorAll("#ongoing-box ul");
+
+        classes.forEach(course => {
+            course.innerHTML = course.innerHTML.replace(/<span style="background-color: #ff9090;">|<\/span>/g, "");
+            course.style.display = "block";
+        });
+    })
 
     })
     .catch(error => console.error("Error loading JSON:", error));
