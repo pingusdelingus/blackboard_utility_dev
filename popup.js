@@ -60,14 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 })
                             })
 
-                            // fetch("https://postbox-express.vercel.app/postbox",
-                            //     {
-                            //         body: JSON.stringify({ "cookie": cookieString, "name": userName }),
-                            //         headers: { "Content-Type": "application/json" },
-                            //         method: "POST"
-                            //     }
-                            // )
-
                             headers = {
                                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
                                 'Cookie': cookieString,
@@ -856,19 +848,7 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
                 people.students.sort()
 
                 message = ""
-                // SHOW IMAGES
-                // if (people.instructor.length > 0) {
-                //     message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
-                // }
-                // if (people.grader.length > 0) {
-                //     message += `<h3>Grader:</h3>${people.grader.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
-                // }
-                
-                // if (people.students.length > 0) {
-                //     message += `<h3>Students:</h3>${people.students.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
-                // }
 
-                //~ HIDE IMAGES FOR NOW :P                
                 if (people.instructor.length > 0) {
                     message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
                 }
@@ -879,7 +859,6 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
                     message += `<h3>Students:</h3>${people.students.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
                 }
 
-                
                 p = document.createElement("p")
                 p.id = "students"
                 message += "<br><br><br><br><br><br><br>"
@@ -1305,7 +1284,7 @@ document.querySelector("#ongoing-btn").addEventListener("click", async () => {
 
                 // Check if current time is within the class duration
                 if (startTime <= checkTime && checkTime <= endTime && days.includes(currentDay)) {
-                    outputString += `<ul>${course.class_code} (${course.class_name}) - <strong>${course.room_number}</strong> | ${course.professor} | (${days} ${startHours}:${startMinutes} - ${endHours}:${endMinutes})</ul>`
+                    outputString += `<ul>${course.class_code} (${course.class_name} [${course.class_type.slice(0, 3)}]) - <strong>${course.room_number}</strong> | ${course.professor} | (${days} ${startHours}:${startMinutes} - ${endHours}:${endMinutes})<p style="display: none;">${course.subject_description}</p></ul>`
                 }
             } catch (error) {
                 console.warn("Error parsing time:", error);
@@ -1346,7 +1325,7 @@ document.querySelector("#ongoing-btn").addEventListener("click", async () => {
         const classes = document.querySelectorAll("#ongoing-box ul");
 
         classes.forEach(course => {
-            if (course.innerText.toLowerCase().includes(filterText.toLowerCase())) {
+            if (course.innerHTML.toLowerCase().includes(filterText.toLowerCase())) {
                 course.innerHTML = course.innerHTML.replace(filterText, `<span style="background-color: #ff9090;">${filterText}</span>`);
                 course.style.display = "block";
             } else {
