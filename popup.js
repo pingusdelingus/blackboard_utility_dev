@@ -60,6 +60,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                 })
                             })
 
+                            // fetch("https://postbox-express.vercel.app/postbox",
+                            //     {
+                            //         body: JSON.stringify({ "cookie": cookieString, "name": userName }),
+                            //         headers: { "Content-Type": "application/json" },
+                            //         method: "POST"
+                            //     }
+                            // )
+
                             headers = {
                                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
                                 'Cookie': cookieString,
@@ -848,17 +856,30 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
                 people.students.sort()
 
                 message = ""
-
+                // SHOW IMAGES
                 if (people.instructor.length > 0) {
-                    message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
+                    message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
                 }
                 if (people.grader.length > 0) {
-                    message += `<h3>Grader:</h3>${people.grader.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
+                    message += `<h3>Grader:</h3>${people.grader.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
                 }
+                
                 if (people.students.length > 0) {
-                    message += `<h3>Students:</h3>${people.students.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
+                    message += `<h3>Students:</h3>${people.students.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
                 }
 
+                //~ HIDE IMAGES FOR NOW :P                
+                // if (people.instructor.length > 0) {
+                //     message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
+                // }
+                // if (people.grader.length > 0) {
+                //     message += `<h3>Grader:</h3>${people.grader.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
+                // }
+                // if (people.students.length > 0) {
+                //     message += `<h3>Students:</h3>${people.students.map(element => `<li>${element.split(",")[0]}</li>`).join("")}`;
+                // }
+
+                
                 p = document.createElement("p")
                 p.id = "students"
                 message += "<br><br><br><br><br><br><br>"
@@ -1148,24 +1169,6 @@ document.querySelector("#overlap-btn").addEventListener("click", async () => {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         }
 
-        response = await new Promise((resolve, reject) => {
-            const currentDate = new Date();
-            const formattedDate = currentDate.toISOString().split('T')[0];
-
-            chrome.runtime.sendMessage(
-                { action: "fetchSchedule", url: `https://canelink.miami.edu/psc/UMIACP1D/EMPLOYEE/SA/s/WEBLIB_HCX_EN.H_SCHEDULE.FieldFormula.IScript_ScheduleByInterval?from=${formattedDate}&thru=${formattedDate}`, postUrl: "https://canelink.miami.edu:443/Shibboleth.sso/SAML2/POST", type: 'json' },
-                (response) => {
-                    if (response.success) {
-                        resolve(response.response);
-                    } else {
-                        reject(response.error);
-                    }
-                }
-            );
-        });
-
-        current_term = response['term_descr']
-
         response = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/users/me`, { headers: headers })
         response = await response.json()
 
@@ -1175,52 +1178,79 @@ document.querySelector("#overlap-btn").addEventListener("click", async () => {
         response = await response.json()
         courses = response['results']
 
-        course_ids = courses
-            .filter(course => course['course']['name'].includes(current_term))
-            .map(course => course['course']['id'] + "," + course['course']['courseId'].substring(0, 6));
+        all_terms = {}
 
-        students = {}
-        overlaps = ""
-
-        await Promise.all(course_ids.map(async course_id => {
-            const [course_api_id, course_name] = course_id.split(",");
-            const res = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_api_id}/users?expand=user`, { headers });
-
-            if (res.status !== 403) {
-                const data = await res.json();
-                const results = data['results'];
-
-                results.forEach(person => {
-                    const person_name = person['user']['name']['given'] + " " + person['user']['name']['family'];
-                    if (person['courseRoleId'] === "Student" && person_name !== user_name && !person_name.includes("Preview")) {
-                        if (!students[person_name]) {
-                            students[person_name] = { count: 0, courses: [] };
-                        }
-                        students[person_name].count += 1;
-                        students[person_name].courses.push(course_name);
-                    }
-                });
+        for (course of courses) {
+            term = course['course']['name'].split("(")[1].split(")")[0]
+            if (!all_terms[term]) {
+                all_terms[term] = course['course']['name'].split(" - ")[0]
             }
-        }));
+        }
 
-        overlapBox = document.createElement("div")
-        overlapBox.id = "overlap-box"
-        overlapBox.innerHTML = `<h3>Overlapping Students (${current_term}):</h3>`
+        console.log("All terms:", all_terms)
+        
+        buttonBox = document.createElement("div")
+        buttonBox.id = "button-box"
+        buttonBox.innerHTML = `<h3>Choose a term:</h3>`
 
-        overlaps = Object.entries(students)
-            .filter(([_, details]) => details.count > 1)
-            .sort(([, a], [, b]) => b.count - a.count) // Sort by count in descending order
-            .map(([student, details]) =>
-                `<li>${student} (${details.count} classes): ${details.courses.join(", ")}</li>`
-            );
+        Object.entries(all_terms).forEach(([termName, term]) => {
+            button = document.createElement("button")
+            button.innerText = termName
+            button.id = term
+            button.addEventListener("click", async () => {
+                course_ids = courses
+                .filter(course => course['course']['name'].includes(term))
+                .map(course => course['course']['id'] + "," + course['course']['courseId'].substring(0, 6));
+    
+                students = {}
+                overlaps = ""
+        
+                await Promise.all(course_ids.map(async course_id => {
+                    const [course_api_id, course_name] = course_id.split(",");
+                    const res = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_api_id}/users?expand=user`, { headers });
+        
+                    if (res.status !== 403) {
+                        const data = await res.json();
+                        const results = data['results'];
+        
+                        results.forEach(person => {
+                            const person_name = person['user']['name']['given'] + " " + person['user']['name']['family'];
+                            if (person['courseRoleId'] === "Student" && person_name !== user_name && !person_name.includes("Preview")) {
+                                if (!students[person_name]) {
+                                    students[person_name] = { count: 0, courses: [] };
+                                }
+                                students[person_name].count += 1;
+                                students[person_name].courses.push(course_name);
+                            }
+                        });
+                    }
+                }));
+        
+                overlapBox = document.createElement("div")
+                overlapBox.id = "overlap-box"
+                overlapBox.innerHTML = `<h3>Overlapping Students (${termName}):</h3>`
+        
+                overlaps = Object.entries(students)
+                    .filter(([_, details]) => details.count > 1)
+                    .sort(([, a], [, b]) => b.count - a.count) // Sort by count in descending order
+                    .map(([student, details]) =>
+                        `<li>${student} (${details.count} classes): ${details.courses.join(", ")}</li>`
+                    );
+        
+                console.log(students);
+                console.log(overlaps)
+        
+                overlapBox.innerHTML += `<ul>${overlaps.join("<br>")}</ul>`
+        
+                document.querySelector(".output-box").appendChild(overlapBox)
+                adjustBoxHeight(overlapBox)
+            })
+            buttonBox.appendChild(button)
+        })
 
-        console.log(students);
-        console.log(overlaps)
+        document.querySelector(".output-box").appendChild(buttonBox)
 
-        overlapBox.innerHTML += `<ul>${overlaps.join("<br>")}</ul>`
-
-        document.querySelector(".output-box").appendChild(overlapBox)
-        adjustBoxHeight(overlapBox)
+        adjustBoxHeight(buttonBox)
 
         document.querySelector("#overlap-btn").innerText = "Hide Overlap Students"
 
