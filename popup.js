@@ -920,150 +920,125 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
 
 //find if a person is in your class
 document.querySelector("#find-person-in-class-btn").addEventListener("click", async () => {
+    const button = document.querySelector("#find-person-in-class-btn");
   
-  if(document.querySelector("#find-person-in-class-btn").innerText == "hide"){
-      p = document.querySelector("table");
+    // Handle hide logic
+    if (button.innerText.toLowerCase() === "hide") {
+      const table = document.querySelector("table");
       setTimeout(() => {
-        p.classList.remove("fade-in");
-        p.classList.add("fade-out");
-       flattenBox(); 
-
-        setTimeout(() => {
-        p.remove();
+        table.classList.remove("fade-in");
+        table.classList.add("fade-out");
+        flattenBox();
+        setTimeout(() => table.remove(), 500);
       }, 500);
-      }, 500);
-        document.querySelector("#find-person-in-class-btn").innerText = "find if a person is in your class"
-        return
-  }// end of if
-
-//   let termID_to_courseID = {"1": [], "2":[] , "3": [], "4":[], "5":[], "6":[], "7":[], "8": [], "9" : [], "10" : []};
-  chrome.cookies.getAll({ domain }, (cookies) => {
-    const cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join("; ");
-
-    fetch(`https://www.courses.miami.edu/learn/api/public/v1/users/me/courses`, {
-        headers: {
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+      button.innerText = "find if a person is in your class";
+      return;
+    }
+  
+    // Get all cookies
+    chrome.cookies.getAll({ domain }, async (cookies) => {
+      const cookieString = cookies.map(c => `${c.name}=${c.value}`).join("; ");
+  
+      try {
+        const courseResp = await fetch("https://www.courses.miami.edu/learn/api/public/v1/users/me/courses", {
+          headers: {
+            'Accept': '*/*',
             'Cookie': cookieString,
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'User-Agent': navigator.userAgent
+          }
+        });
+  
+        const courseData = await courseResp.json();
+        const termToCourseID = {};
+  
+        courseData.results.forEach(course => {
+          const courseId = course.id;
+          const termId = course.course.termId;
+          if (!termToCourseID[termId]) termToCourseID[termId] = [];
+          termToCourseID[termId].push(courseId);
+        });
+  
+        const allPeople = { instructor: [], grader: [], students: [] };
+  
+        for (const termId in termToCourseID) {
+          for (const courseId of termToCourseID[termId]) {
+            const userResp = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${courseId}/users?expand=user`, {
+              headers: {
+                'Accept': '*/*',
+                'Cookie': cookieString,
+                'User-Agent': navigator.userAgent
+              }
+            });
+  
+            const userData = await userResp.json();
+  
+            userData.results.forEach(person => {
+              const name = person.user.name.given + " " + person.user.name.family;
+              const avatar = person.user.avatar.viewUrl;
+              const entry = `${name},${avatar}`;
+  
+              switch (person.courseRoleId) {
+                case "Instructor":
+                  allPeople.instructor.push(entry);
+                  break;
+                case "Grader":
+                  allPeople.grader.push(entry);
+                  break;
+                default:
+                  allPeople.students.push(entry);
+              }
+            });
+          }
         }
-    }).then(response => {
-        return response.json();
-    })
-        .then(data => {
-        //    people = { "instructor": [], "grader": [], "students": [] };
-            term_to_courseID = {}
-
-            lst = data.results;
-            lst.forEach(course => {
-                var dunderCourseID = course["id"];
-                var dunderTermID = course["course"]["termId"];
-                if (dunderTermID in term_to_courseID ){
-                    term_to_courseID[dunderTermID].push(dunderCourseID);
-                } // if termID hasn't been seen yet, create it in dict and append courseID to it
-                else{
-                    term_to_courseID[dunderTermID] = []
-                    term_to_courseID[dunderTermID].push(dunderCourseID);
-                }
-            
-            })// end of for each initialization 
-
-            allPeople = { "instructor": [], "grader": [], "students": [] };
-            Object.keys(term_to_courseID).forEach(key => {
-                    var courseIdList = term_to_courseID[key];
-
-                        for(let i = 0; i < courseIdList.length; i++){
-                    
-                    course_id =courseIdList[i];
-
-                chrome.cookies.getAll({ domain }, (cookies) => {
-                    const cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join("; ");
-                    course_id = tab.url.split("/")[5]
-            
-                    fetch(`https://www.courses.miami.edu/learn/api/public/v1/courses/${course_id}/users?expand=user`, {
-                        headers: {
-                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-                            'Cookie': cookieString,
-                            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-                        }
-                    }).then(response => {
-                        return response.json();
-                    })
-                        .then(data => {
-                            people = { "instructor": [], "grader": [], "students": [] }
-                            lst = data.results
-                            lst.forEach(person => {
-                                person_name = person['user']['name']['given'] + " " + person['user']['name']['family'] + "," + person['user']['avatar']['viewUrl']
-                                if (person['courseRoleId'] == "Instructor") {
-                                    people["instructor"].push(person_name)
-                                }
-                                else if (person['courseRoleId'] == "Grader") {
-                                    people["grader"].push(person_name)
-                                }
-                                else {
-                                    people["students"].push(person_name)
-                                }
-                            })
-                            people.students.sort();
-
-                            allPeople["students"] = allPeople["students"].concat(people["students"]);
-                            allPeople["instructor"] = allPeople["instructor"].concat(people["instructor"]);
-                            allPeople["grader"] = allPeople["grader"].concat(people["grader"]);
-            
-                        })
-                        .catch(error => {
-                            console.error(error);
-                        });
-                });
-            }// end of for each term
-
-
-            })// end of for each dict term_to_course
-
-                            message = ""
-                            // SHOW IMAGES
-                            if (people.instructor.length > 0) {
-                                message += `<h3>Instructor:</h3>${people.instructor.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
-                            }
-                            if (people.grader.length > 0) {
-                                message += `<h3>Grader:</h3>${people.grader.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
-                            }
-                            
-                            if (people.students.length > 0) {
-                                message += `<h3>Students:</h3>${people.students.map(element => `<li><a class="student-image" href="${element.split(",")[1]}" target="_blank">${element.split(",")[0]}</a></li>`).join("")}`;
-                            }
-            
-                            p = document.createElement("p")
-                            p.id = "students"
-                            message += "<br><br><br><br><br><br><br>"
-                            p.innerHTML = message
-                            document.querySelector(".output-box").appendChild(p)
-                            adjustBoxHeight(p)
-            
-                            document.querySelectorAll(".student-image").forEach(image => {
-                                image.addEventListener("mouseover", (event) => {
-                                    event.preventDefault()
-                                    student_image = document.createElement("img")
-                                    student_image.src = event.target.href
-                                    student_image.style = "width: 180px; height: 200px;"
-                                    event.target.parentElement.insertAdjacentElement("afterend", student_image)
-                                })
-                            })
-                            document.querySelectorAll(".student-image").forEach(image => {
-                                image.addEventListener("mouseout", (event) => {
-                                    event.preventDefault()
-                                    student_image = document.querySelector("#students img")
-                                    student_image.remove()
-                                })
-                            })
-            
-                            setTimeout(() => {
-                                p.classList.add("fade-in");
-                            }, 200);
-                            document.querySelector("#students-btn").innerText = "Hide Students From Class"
-
-});
-
-})// end of find person in class fn 
+  
+        allPeople.students.sort();
+        renderPeople(allPeople);
+      } catch (err) {
+        console.error("Error fetching class info:", err);
+      }
+    });
+  });
+  
+  function renderPeople(people) {
+    const p = document.createElement("p");
+    p.id = "students";
+  
+    let message = "";
+    const buildList = (title, list) =>
+      `<h3>${title}:</h3>` +
+      list.map(e => `<li><a class="student-image" href="${e.split(",")[1]}" target="_blank">${e.split(",")[0]}</a></li>`).join("");
+  
+    if (people.instructor.length) message += buildList("Instructor", people.instructor);
+    if (people.grader.length) message += buildList("Grader", people.grader);
+    if (people.students.length) message += buildList("Students", people.students);
+  
+    message += "<br><br><br><br><br><br><br>";
+    p.innerHTML = message;
+    document.querySelector(".output-box").appendChild(p);
+    adjustBoxHeight(p);
+  
+    document.querySelectorAll(".student-image").forEach(image => {
+      image.addEventListener("mouseover", e => {
+        e.preventDefault();
+        const img = document.createElement("img");
+        img.src = e.target.href;
+        img.style = "width: 180px; height: 200px;";
+        e.target.parentElement.insertAdjacentElement("afterend", img);
+      });
+  
+      image.addEventListener("mouseout", e => {
+        e.preventDefault();
+        const img = document.querySelector("#students img");
+        if (img) img.remove();
+      });
+    });
+  
+    setTimeout(() => {
+      p.classList.add("fade-in");
+    }, 200);
+  
+    document.querySelector("#students-btn").innerText = "Hide Students From Class";
+  }// end of method for find if
 
 
 // function for getting dining dollars
