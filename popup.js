@@ -917,6 +917,57 @@ document.querySelector("#students-btn").addEventListener("click", async () => {
     });
 });
 
+
+document.querySelector("#find-person-in-class-btn").addEventListener("click", async () => {
+  
+  if(document.querySelector("#find-person-in-class-btn").innerText == "hide"){
+      p = document.querySelector("table");
+      setTimeout(() => {
+        p.classList.remove("fade-in");
+        p.classList.add("fade-out");
+       flattenBox(); 
+
+        setTimeout(() => {
+        p.remove();
+      }, 500);
+      }, 500);
+        document.querySelector("#find-person-in-class-btn").innerText = "find if a person is in your class"
+        return
+  }// end of if
+
+    chrome.cookies.getAll({ domain }, async (cookies) => {
+        const cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join("; ");
+
+        headers = {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Cookie': cookieString,
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        }
+
+        response = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/users/me`, { headers: headers })
+        response = await response.json()
+
+        user_name = response['name']['given'] + " " + response['name']['family']
+
+        response = await fetch(`https://www.courses.miami.edu/learn/api/public/v1/users/me/courses?expand=course`, { headers: headers })
+        response = await response.json()
+        courses = response['results']
+
+        all_terms = {}
+
+        for (course of courses) {
+            term = course['course']['name'].split("(")[1].split(")")[0]
+            if (!all_terms[term]) {
+                all_terms[term] = course['course']['name'].split(" - ")[0]
+            }// end of if
+        }// end of for 
+
+       // now we have a list of real courses 
+
+
+})// end of find person in class fn 
+
+
 // function for getting dining dollars
 document.querySelector("#dining-btn").addEventListener("click", async () => {
     if (document.querySelector("#dining-btn").innerText == "Hide Dining Dollars") {
