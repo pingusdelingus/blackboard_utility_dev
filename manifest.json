@@ -1,5 +1,5 @@
 {
-    "name": "Blackboard Utility",
+    "name": "Blackboard Utility DEV",
     "description": "Friendly extension that gives more utility to the Blackboard website. Utilities range from downloading all course documents, to getting all students from course. (University of Miami)",
     "version": "1.0",
     "manifest_version": 3,
